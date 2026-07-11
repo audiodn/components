@@ -422,9 +422,11 @@ function template (this: AudioDnWaveform): TemplateResult {
       <canvas @click=${this} role="img" aria-label=${t(this.locale, 'waveform.aria')}></canvas>
       <div class="playhead progress-playhead"></div>
       <div class="playhead hover-playhead"></div>
-      ${hoverTime !== null ? html`
+      ${hoverTime !== null
+? html`
         <div class="hover-tooltip" style="left: ${this.hoverPosition! * 100}%">${hoverTime}</div>
-      ` : ''}
+      `
+: ''}
     </div>
   `
 }

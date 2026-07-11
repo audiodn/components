@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { 
-  iconPlay, 
-  iconPause, 
-  iconSetting, 
-  iconVolumeEmpty, 
-  iconVolumePartial, 
+import {
+  iconPlay,
+  iconPause,
+  iconSetting,
+  iconVolumeEmpty,
+  iconVolumePartial,
   iconVolumeFull,
   iconDownload,
   iconCloudUpload
@@ -96,11 +96,11 @@ describe('Constants', () => {
   describe('SVG Structure', () => {
     it('should have valid SVG structure for all icons', () => {
       const icons = [
-        iconPlay, 
-        iconPause, 
-        iconSetting, 
-        iconVolumeEmpty, 
-        iconVolumePartial, 
+        iconPlay,
+        iconPause,
+        iconSetting,
+        iconVolumeEmpty,
+        iconVolumePartial,
         iconVolumeFull,
         iconDownload,
         iconCloudUpload
@@ -120,9 +120,9 @@ describe('Constants', () => {
 
       // Other icons should have 512x512 viewBox
       const icons512 = [
-        iconSetting, 
-        iconVolumeEmpty, 
-        iconVolumePartial, 
+        iconSetting,
+        iconVolumeEmpty,
+        iconVolumePartial,
         iconVolumeFull,
         iconDownload,
         iconCloudUpload
@@ -137,18 +137,18 @@ describe('Constants', () => {
   describe('Icon Uniqueness', () => {
     it('should have unique content for each icon', () => {
       const icons = [
-        iconPlay, 
-        iconPause, 
-        iconSetting, 
-        iconVolumeEmpty, 
-        iconVolumePartial, 
+        iconPlay,
+        iconPause,
+        iconSetting,
+        iconVolumeEmpty,
+        iconVolumePartial,
         iconVolumeFull,
         iconDownload,
         iconCloudUpload
       ]
 
       const iconStrings = icons.map(icon => icon.strings[0])
-      
+
       // Check that all icons have unique content
       for (let i = 0; i < iconStrings.length; i++) {
         for (let j = i + 1; j < iconStrings.length; j++) {
@@ -157,4 +157,4 @@ describe('Constants', () => {
       }
     })
   })
-}) 
+})

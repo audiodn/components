@@ -45,7 +45,7 @@ describe('AudioDnPlayButton', () => {
     it('should render the correct icon in the DOM', async () => {
       element.state = 'paused'
       await element.updateComplete
-      
+
       const button = element.shadowRoot?.querySelector('button')
       expect(button).to.exist
       expect(button?.innerHTML).toContain('svg')
@@ -56,19 +56,19 @@ describe('AudioDnPlayButton', () => {
     it('should dispatch adni-click event when clicked', async () => {
       const eventSpy = vi.fn()
       element.addEventListener('adni-click', eventSpy)
-      
+
       const button = element.shadowRoot?.querySelector('button')
       button?.click()
-      
+
       expect(eventSpy).toHaveBeenCalled()
     })
 
     it('should create custom event with correct type', () => {
       const eventSpy = vi.fn()
       element.addEventListener('adni-click', eventSpy)
-      
+
       element.handleEvent()
-      
+
       expect(eventSpy).toHaveBeenCalled()
     })
   })
@@ -77,7 +77,7 @@ describe('AudioDnPlayButton', () => {
     it('should have button element with correct styles', () => {
       const button = element.shadowRoot?.querySelector('button')
       expect(button).to.exist
-      
+
       const computedStyle = getComputedStyle(button!)
       expect(computedStyle.display).toBeDefined()
       expect(computedStyle.position).toBeDefined()
@@ -86,7 +86,7 @@ describe('AudioDnPlayButton', () => {
     it('should apply CSS custom properties', () => {
       const button = element.shadowRoot?.querySelector('button')
       const computedStyle = getComputedStyle(button!)
-      
+
       // Check that CSS custom properties are available
       expect(computedStyle.getPropertyValue('--adn-playbutton-border')).toBeDefined()
       expect(computedStyle.getPropertyValue('--adn-playbutton-radius')).toBeDefined()
@@ -96,7 +96,7 @@ describe('AudioDnPlayButton', () => {
     it('should have SVG icon with correct styling', () => {
       const svg = element.shadowRoot?.querySelector('svg')
       expect(svg).to.exist
-      
+
       const computedStyle = getComputedStyle(svg!)
       expect(computedStyle.width).toBeDefined()
       // The z-index may not be set in the computed styles
@@ -122,7 +122,7 @@ describe('AudioDnPlayButton', () => {
       element.state = 'paused'
       await element.updateComplete
       expect(element.getIconForState()).toBe(iconPlay)
-      
+
       // Change to playing state
       element.state = 'playing'
       await element.updateComplete
@@ -132,13 +132,13 @@ describe('AudioDnPlayButton', () => {
     it('should maintain button functionality across state changes', async () => {
       const eventSpy = vi.fn()
       element.addEventListener('adni-click', eventSpy)
-      
+
       // Test in paused state
       element.state = 'paused'
       await element.updateComplete
       element.shadowRoot?.querySelector('button')?.click()
       expect(eventSpy).toHaveBeenCalledTimes(1)
-      
+
       // Test in playing state
       element.state = 'playing'
       await element.updateComplete
@@ -146,4 +146,4 @@ describe('AudioDnPlayButton', () => {
       expect(eventSpy).toHaveBeenCalledTimes(2)
     })
   })
-}) 
+})

@@ -64,7 +64,7 @@ function template (this: AudioDnTracklist): TemplateResult {
 
   return html`
     <ul role="listbox" aria-label=${t(this.locale, 'tracklist.aria')}>
-      ${this.tracks.map((track) => {
+      ${this.tracks.map((track, index) => {
         const title = track.playerTitle ?? track.fileName
         const subtitle = track.playerSubtitle
         const text = [title, subtitle].join(' - ')
@@ -78,7 +78,8 @@ function template (this: AudioDnTracklist): TemplateResult {
               tabindex="${active ? '0' : '-1'}"
               @click=${this}
               @keydown=${(e: KeyboardEvent) => this.handleKeydown(e)}>
-            <div title="${text}">${text}</div>
+            <span class="tracklist-number" aria-hidden="true">${index + 1}</span>
+            <div class="tracklist-text" title="${text}">${text}</div>
             <time duration="${formatDurationTimestamp(track.duration)}">${formatDuration(track.duration)}</time>
           </li>
         `
@@ -151,7 +152,26 @@ function styles (): CSSResult {
       cursor: auto;
     }
 
-    [title] {
+    .tracklist-number {
+      flex-shrink: 0;
+      box-sizing: border-box;
+      min-width: var(--adn-tracklist-width-number, 2ch);
+      text-align: right;
+      padding-inline-end: var(--adn-tracklist-gap-number, 4px);
+      font-variant-numeric: tabular-nums;
+      font-size: var(--_text-small);
+      font-weight: 600;
+      color: var(--adn-tracklist-color-number, var(--_color-font-muted));
+    }
+
+    li[active] .tracklist-number,
+    li:hover .tracklist-number {
+      color: var(--adn-tracklist-color-number-active, var(--_color-accent));
+    }
+
+    .tracklist-text {
+      flex: 1;
+      min-width: 0;
       overflow-x: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;

@@ -82,7 +82,7 @@
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run lint && npm run test:run && npm run build"
   },
   "dependencies": {
     "lit": "^3.3.0"

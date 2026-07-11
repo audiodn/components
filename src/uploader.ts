@@ -494,12 +494,14 @@ function template (this: AudiodnUploader) {
           `
     }
 
-    ${showTotalProgress ? html`
+    ${showTotalProgress
+? html`
       <div class="uploader-total-progress" role="progressbar" aria-valuenow="${this.totalProgress}" aria-valuemin="0" aria-valuemax="100" aria-label=${t(this.locale, 'uploader.aria.totalProgress')}>
         <div class="uploader-total-progress-bar" style="width: ${this.totalProgress}%"></div>
         <span class="uploader-total-progress-text">${t(this.locale, 'uploader.totalProgressText', { percent: this.totalProgress })}</span>
       </div>
-    ` : ''}
+    `
+: ''}
 
     ${this.files.length > 0
       ? html`

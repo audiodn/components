@@ -67,4 +67,4 @@ describe('formatBytes', () => {
     expect(formatBytes(1099511627776)).toBe('1.1 TB')
     expect(formatBytes(1125899906842624)).toBe('1.13 PB')
   })
-}) 
+})

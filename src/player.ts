@@ -704,9 +704,11 @@ function mainTemplate (this: AudioDnPlayer) {
 
     <div aria-live="polite" class="sr-only">${statusMessage.call(this)}</div>
 
-    ${this.tracks.length > 1 ? html`
+    ${this.tracks.length > 1
+? html`
       <audiodn-tracklist @adni-track-selected=${this.handleUISelectTrack} .tracks=${this.tracks} .activeTrackId=${this.activeTrack?.id} .locale=${this.locale}></audiodn-tracklist>
-    ` : nothing}
+    `
+: nothing}
   `
 }
 

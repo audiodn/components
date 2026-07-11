@@ -91,16 +91,16 @@ describe('Storage', () => {
   describe('integration', () => {
     it('should round-trip data correctly', () => {
       const testData = 'simple string data'
-      
+
       // Mock the getItem to return what setItem would store
       mockStorage.setItem.mockImplementation((key, value) => {
         mockStorage.getItem.mockReturnValue(value)
       })
-      
+
       storage.set('test', testData)
       const retrieved = storage.get('test')
-      
+
       expect(retrieved).toEqual(testData)
     })
   })
-}) 
+})

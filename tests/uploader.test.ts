@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { fixture, html } from '@open-wc/testing'
+import { fixture } from '@open-wc/testing'
 import { AudiodnUploader } from '../src/uploader'
 
 const mockSessionData = {
@@ -144,7 +144,7 @@ describe('AudiodnUploader', () => {
       expect(element.error).toBe('temporary')
 
       element.retryLoadSession()
-      await new Promise(r => setTimeout(r, 0))
+      await new Promise(resolve => setTimeout(resolve, 0))
       await element.updateComplete
 
       expect(element.error).toBeUndefined()

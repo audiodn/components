@@ -4,8 +4,10 @@ import type { SessionData, PlaySessionTrack } from './session.ts'
 // ---------------------------------------------------------------------
 // Static Configuration
 
-// @ts-ignore - Vite injects this at build time
-export const apiURL = import.meta.env?.VITE_API_URL || 'https://api.audiodelivery.net'
+// Vite injects `import.meta.env` at build time; type it locally so we don't
+// need a global vite/client type reference just for this one lookup.
+const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+export const apiURL = viteEnv?.VITE_API_URL || 'https://api.audiodelivery.net'
 
 // ---------------------------------------------------------------------
 // Error Types
@@ -27,7 +29,7 @@ const BASE_DELAY = 1000
 
 async function fetchWithRetry (
   input: RequestInfo,
-  init?: RequestInit,
+  init?: RequestInit
 ): Promise<Response> {
   let lastError: Error | null = null
 

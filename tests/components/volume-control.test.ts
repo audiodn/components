@@ -30,7 +30,7 @@ describe('AudioDnVolumeControl', () => {
     it('should show empty volume icon when volume is 0', async () => {
       element.volume = 0
       await element.updateComplete
-      
+
       const svg = element.shadowRoot?.querySelector('svg')
       expect(svg).to.exist
       expect(svg?.innerHTML).toContain('path')
@@ -39,7 +39,7 @@ describe('AudioDnVolumeControl', () => {
     it('should show full volume icon when volume is 1', async () => {
       element.volume = 1
       await element.updateComplete
-      
+
       const svg = element.shadowRoot?.querySelector('svg')
       expect(svg).to.exist
       expect(svg?.innerHTML).toContain('path')
@@ -48,7 +48,7 @@ describe('AudioDnVolumeControl', () => {
     it('should show partial volume icon when volume is between 0 and 1', async () => {
       element.volume = 0.5
       await element.updateComplete
-      
+
       const svg = element.shadowRoot?.querySelector('svg')
       expect(svg).to.exist
       expect(svg?.innerHTML).toContain('path')
@@ -72,7 +72,7 @@ describe('AudioDnVolumeControl', () => {
     it('should update input value when volume changes', async () => {
       element.volume = 0.5
       await element.updateComplete
-      
+
       const input = element.shadowRoot?.querySelector('input[type="range"]') as HTMLInputElement
       expect(input.value).toBe('0.5')
     })
@@ -80,7 +80,7 @@ describe('AudioDnVolumeControl', () => {
     it('should update CSS custom property when volume changes', async () => {
       element.volume = 0.5
       await element.updateComplete
-      
+
       const input = element.shadowRoot?.querySelector('input[type="range"]') as HTMLInputElement
       const width = input.style.getPropertyValue('--_width')
       expect(width).toBe('50%')
@@ -91,24 +91,24 @@ describe('AudioDnVolumeControl', () => {
     it('should dispatch adni-volumechange event when slider changes', async () => {
       const eventSpy = vi.fn()
       element.addEventListener('adni-volumechange', eventSpy)
-      
+
       const input = element.shadowRoot?.querySelector('input[type="range"]') as HTMLInputElement
       input.value = '0.5'
       input.dispatchEvent(new Event('input'))
-      await new Promise(r => requestAnimationFrame(r))
-      
+      await new Promise(resolve => requestAnimationFrame(resolve))
+
       expect(eventSpy).toHaveBeenCalled()
     })
 
     it('should include volume value in event detail', async () => {
       const eventSpy = vi.fn()
       element.addEventListener('adni-volumechange', eventSpy)
-      
+
       const input = element.shadowRoot?.querySelector('input[type="range"]') as HTMLInputElement
       input.value = '0.5'
       input.dispatchEvent(new Event('input'))
-      await new Promise(r => requestAnimationFrame(r))
-      
+      await new Promise(resolve => requestAnimationFrame(resolve))
+
       expect(eventSpy).toHaveBeenCalledWith(expect.objectContaining({
         detail: 0.5
       }))
@@ -117,12 +117,12 @@ describe('AudioDnVolumeControl', () => {
     it('should handle decimal values correctly', async () => {
       const eventSpy = vi.fn()
       element.addEventListener('adni-volumechange', eventSpy)
-      
+
       const input = element.shadowRoot?.querySelector('input[type="range"]') as HTMLInputElement
       input.value = '0.75'
       input.dispatchEvent(new Event('input'))
-      await new Promise(r => requestAnimationFrame(r))
-      
+      await new Promise(resolve => requestAnimationFrame(resolve))
+
       expect(eventSpy).toHaveBeenCalledWith(expect.objectContaining({
         detail: 0.75
       }))
@@ -138,7 +138,7 @@ describe('AudioDnVolumeControl', () => {
 
     it('should apply CSS custom properties', () => {
       const computedStyle = getComputedStyle(element)
-      
+
       // Check that CSS custom properties are available
       expect(computedStyle.getPropertyValue('--adn-volumecontrol-bg')).toBeDefined()
       expect(computedStyle.getPropertyValue('--adn-volumecontrol-border')).toBeDefined()
@@ -148,7 +148,7 @@ describe('AudioDnVolumeControl', () => {
     it('should style the input range correctly', () => {
       const input = element.shadowRoot?.querySelector('input[type="range"]')
       const computedStyle = getComputedStyle(input!)
-      
+
       expect(computedStyle.appearance).toBeDefined()
       expect(computedStyle.outline).toBeDefined()
     })
@@ -173,10 +173,10 @@ describe('AudioDnVolumeControl', () => {
     it('should handle minimum volume (0)', async () => {
       element.volume = 0
       await element.updateComplete
-      
+
       const input = element.shadowRoot?.querySelector('input[type="range"]') as HTMLInputElement
       expect(input.value).toBe('0')
-      
+
       const width = input.style.getPropertyValue('--_width')
       expect(width).toBe('0%')
     })
@@ -184,10 +184,10 @@ describe('AudioDnVolumeControl', () => {
     it('should handle maximum volume (1)', async () => {
       element.volume = 1
       await element.updateComplete
-      
+
       const input = element.shadowRoot?.querySelector('input[type="range"]') as HTMLInputElement
       expect(input.value).toBe('1')
-      
+
       const width = input.style.getPropertyValue('--_width')
       expect(width).toBe('100%')
     })
@@ -195,12 +195,12 @@ describe('AudioDnVolumeControl', () => {
     it('should handle fractional volumes', async () => {
       element.volume = 0.33
       await element.updateComplete
-      
+
       const input = element.shadowRoot?.querySelector('input[type="range"]') as HTMLInputElement
       expect(input.value).toBe('0.33')
-      
+
       const width = input.style.getPropertyValue('--_width')
       expect(width).toBe('33%')
     })
   })
-}) 
+})

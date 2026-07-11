@@ -8,7 +8,7 @@ describe('createAudioInstance', () => {
   beforeEach(() => {
     // Reset the mock
     vi.clearAllMocks()
-    
+
     mockAudio = {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -51,7 +51,7 @@ describe('createAudioInstance', () => {
 
     // Mock the Audio constructor
     vi.mocked(window.Audio).mockImplementation(() => mockAudio)
-    
+
     eventHandler = vi.fn()
   })
 
@@ -63,7 +63,7 @@ describe('createAudioInstance', () => {
 
   it('should add event listeners for all audio events', () => {
     createAudioInstance(eventHandler)
-    
+
     // Check that addEventListener was called for all the on* properties
     const expectedEvents = [
       'play', 'pause', 'load', 'canplay', 'timeupdate', 'ended', 'error',
@@ -79,7 +79,7 @@ describe('createAudioInstance', () => {
 
   it('should return the audio element with all expected properties', () => {
     const audio = createAudioInstance(eventHandler)
-    
+
     // Check that the audio element has the expected properties
     expect(audio).toHaveProperty('addEventListener')
     expect(audio).toHaveProperty('removeEventListener')
@@ -102,7 +102,7 @@ describe('createAudioInstance', () => {
   it('should handle the event handler function correctly', () => {
     const customEventHandler = vi.fn()
     createAudioInstance(customEventHandler)
-    
+
     // Verify the custom event handler is used
     expect(mockAudio.addEventListener).toHaveBeenCalledWith('play', customEventHandler)
     expect(mockAudio.addEventListener).toHaveBeenCalledWith('pause', customEventHandler)
@@ -110,12 +110,12 @@ describe('createAudioInstance', () => {
 
   it('should not add listeners for non-event properties', () => {
     createAudioInstance(eventHandler)
-    
+
     // Properties that shouldn't have event listeners
     const nonEventProperties = ['currentTime', 'duration', 'volume', 'muted', 'paused']
-    
+
     nonEventProperties.forEach(prop => {
       expect(mockAudio.addEventListener).not.toHaveBeenCalledWith(prop, eventHandler)
     })
   })
-}) 
+})

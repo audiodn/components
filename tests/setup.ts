@@ -83,4 +83,4 @@ Object.defineProperty(window, 'Audio', {
     currentSrc: ''
   })),
   writable: true
-}) 
+})
