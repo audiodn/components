@@ -9,6 +9,7 @@ export interface FetchSession {
   variants: string[];
   sessionTtl?: number;
   locale?: string;
+  downloadable?: boolean;
 }
 
 const SESSION_REFRESH_BUFFER_MS = 30_000
@@ -79,6 +80,7 @@ export async function fetchSession ({
   variants,
   sessionTtl,
   locale,
+  downloadable,
 }: FetchSession): Promise<SessionData> {
   if (playSessionId) {
     try {
@@ -99,7 +101,7 @@ export async function fetchSession ({
     throw new Error('no variants provided')
   }
 
-  const sessionData = await createPlayerSession(apiKey, scope, id, variants, sessionTtl, locale)
+  const sessionData = await createPlayerSession(apiKey, scope, id, variants, sessionTtl, locale, downloadable)
   if (!sessionData) {
     throw new Error('failed to load session data')
   }

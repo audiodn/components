@@ -31,6 +31,7 @@ export type MessageKey =
   | 'volume.aria'
   | 'settings.aria'
   | 'settings.download'
+  | 'settings.notDownloadable'
   | 'trackTitle.none'
   | 'coverArt.none'
   | 'coverArt.alt'
@@ -85,6 +86,7 @@ const en: Messages = {
   'volume.aria': 'Volume',
   'settings.aria': 'Settings',
   'settings.download': 'Download {label}',
+  'settings.notDownloadable': 'This track isn’t downloadable.',
   'trackTitle.none': 'No track selected',
   'coverArt.none': 'No cover art',
   'coverArt.alt': 'Cover art',
@@ -138,6 +140,7 @@ const fr: Messages = {
   'volume.aria': 'Volume',
   'settings.aria': 'Paramètres',
   'settings.download': 'Télécharger {label}',
+  'settings.notDownloadable': 'Cette piste n’est pas téléchargeable.',
   'trackTitle.none': 'Aucune piste sélectionnée',
   'coverArt.none': 'Pas de pochette',
   'coverArt.alt': 'Pochette',
@@ -191,6 +194,7 @@ const es: Messages = {
   'volume.aria': 'Volumen',
   'settings.aria': 'Ajustes',
   'settings.download': 'Descargar {label}',
+  'settings.notDownloadable': 'Esta pista no se puede descargar.',
   'trackTitle.none': 'Ninguna pista seleccionada',
   'coverArt.none': 'Sin carátula',
   'coverArt.alt': 'Carátula',
@@ -244,6 +248,7 @@ const de: Messages = {
   'volume.aria': 'Lautstärke',
   'settings.aria': 'Einstellungen',
   'settings.download': '{label} herunterladen',
+  'settings.notDownloadable': 'Dieser Titel kann nicht heruntergeladen werden.',
   'trackTitle.none': 'Kein Titel ausgewählt',
   'coverArt.none': 'Kein Cover',
   'coverArt.alt': 'Cover',

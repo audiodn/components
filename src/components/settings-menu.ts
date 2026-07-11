@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 import { iconSetting, iconDownload } from '../lib/constants.ts'
-import { apiURL } from '../lib/api.ts'
+import { getPlaySessionTrackVariantDownload } from '../lib/api.ts'
 import { formatBytes } from '../lib/util.ts'
 import { t, type Locale } from '../lib/i18n.ts'
 import type { CSSResult, TemplateResult } from 'lit'
@@ -32,8 +32,67 @@ export class AudioDnSettingsMenu extends LitElement {
 
   static styles = styles()
 
+  // Number of real variants (activeTrackVariants can be sparse, so ignore holes).
+  private get variantCount (): number {
+    return this.variants.filter(Boolean).length
+  }
+
+  // The cog is only useful when it has something behind it: more than one
+  // variant to switch between, or a downloadable variant. With a single variant
+  // and no download there's nothing to choose, so the menu hides itself (see the
+  // :host([hidden]) rule) and the volume control takes over the space.
+  get hasMenu (): boolean {
+    if (!this.playSessionId) return false
+    const canSwitchVariant = this.variantCount > 1
+    const canDownload = this.download && this.variantCount > 0
+    return canSwitchVariant || canDownload
+  }
+
   render () {
     return template.call(this)
+  }
+
+  // Fetch a fresh download URL and trigger the browser download. The endpoint is
+  // the real gate: if the session isn't downloadable (API key said no) it 403s,
+  // and we surface a graceful, localized message via `adni-download-error`
+  // rather than a broken link. The presigned URL carries a
+  // `Content-Disposition: attachment`, so the browser saves the file instead of
+  // navigating away from the embedded player.
+  async handleDownload (variantIndex: string) {
+    if (!this.playSessionId || !this.trackId) return
+
+    try {
+      const result = await getPlaySessionTrackVariantDownload(
+        this.playSessionId,
+        this.trackId,
+        variantIndex,
+        this.locale
+      )
+
+      const url = result?.download?.url
+      if (!url) throw new Error('Download URL missing')
+
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.rel = 'noopener'
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+    } catch (err) {
+      this.dispatchEvent(new CustomEvent('adni-download-error', {
+        detail: { variant: variantIndex, error: err },
+        bubbles: true,
+        composed: true,
+      }))
+    }
+  }
+
+  willUpdate () {
+    // Reflect emptiness onto the host so it collapses out of the layout and the
+    // parent player can adjust spacing (see audiodn-settings-menu[hidden] rules).
+    const empty = !this.hasMenu
+    this.toggleAttribute('hidden', empty)
+    if (empty && this.isOpen) this.isOpen = false
   }
 
   updated (changedProperties: Map<string, unknown>) {
@@ -101,11 +160,7 @@ declare global {
 }
 
 function template (this: AudioDnSettingsMenu): TemplateResult {
-  if (!this.playSessionId) return html``
-
-  const downloadUrl = (v: TrackVariant) => {
-    return `${apiURL}/v1/play/${this.playSessionId}/${this.trackId}/${v.variant.index}/download`
-  }
+  if (!this.hasMenu) return html``
 
   return html`
     <button name=toggle
@@ -128,7 +183,7 @@ function template (this: AudioDnSettingsMenu): TemplateResult {
         return html`
           <li role="menuitem" ?active=${v.id === this.variant.id}>
             <button @click=${this} name="variant" index=${v.variant.index} ?disabled=${v.id === this.variant.id}>${buttonText}</button>
-            ${this.download && html`<a href="${downloadUrl(v)}" target="_blank" rel="noopener noreferrer" aria-label=${t(this.locale, 'settings.download', { label: buttonText })}>${iconDownload}</a>`}
+            ${this.download ? html`<button type="button" name="download" @click=${() => this.handleDownload(v.variant.index)} aria-label=${t(this.locale, 'settings.download', { label: buttonText })}>${iconDownload}</button>` : ''}
           </li>
         `
       })}
@@ -149,6 +204,10 @@ function styles (): CSSResult {
       align-items: center;
       display: flex;
       box-shadow: var(--adn-settingsmenu-box-shadow);
+    }
+
+    :host([hidden]) {
+      display: none;
     }
 
     [name=toggle] {

@@ -157,26 +157,22 @@ describe('Player Integration Tests', () => {
     })
   })
 
-  describe('Downloadable sessions', () => {
-    it('passes download=true to settings menu when session is downloadable', async () => {
-      const downloadableSession = structuredClone(mockSessionData)
-      downloadableSession.playSession.isDownloadable = true
-      downloadableSession.firstTrack.playSession.isDownloadable = true
-
-      mockFetchSession.mockResolvedValueOnce(downloadableSession)
-      const downloadablePlayer = await fixture(html`<audiodn-player></audiodn-player>`) as unknown as AudioDnPlayer
+  describe('Downloadable player', () => {
+    it('passes download=true to settings menu when the downloadable attribute is set', async () => {
+      // The cog download option is driven by the player's own `downloadable`
+      // attribute, not the session flag. The API key remains the authoritative
+      // gate server-side; the attribute only surfaces the option.
+      const downloadablePlayer = await fixture(html`<audiodn-player downloadable></audiodn-player>`) as unknown as AudioDnPlayer
       await downloadablePlayer.updateComplete
 
       const settingsMenu = downloadablePlayer.shadowRoot?.querySelector('audiodn-settings-menu') as HTMLElement & { download?: boolean }
       expect(settingsMenu).to.exist
-      expect(settingsMenu.getAttribute('download')).not.toBeNull()
       expect((settingsMenu as any).download).toBe(true)
     })
 
-    it('does not set download attribute when session is not downloadable', async () => {
+    it('does not enable the download option by default', async () => {
       const settingsMenu = element.shadowRoot?.querySelector('audiodn-settings-menu') as HTMLElement & { download?: boolean }
       expect(settingsMenu).to.exist
-      expect(settingsMenu.getAttribute('download')).toBeNull()
       expect((settingsMenu as any).download).toBe(false)
     })
   })

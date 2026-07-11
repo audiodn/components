@@ -210,7 +210,8 @@ export async function createPlayerSession (
   id: string,
   variants: string[],
   expiresIn?: number,
-  locale?: string
+  locale?: string,
+  downloadable?: boolean
 ): Promise<SessionData> {
   type firstTrackResponse = {
     track_id: string
@@ -244,6 +245,9 @@ export async function createPlayerSession (
         [`${scope}_id`]: id,
         variants,
         ...(expiresIn && { expires_in: expiresIn }),
+        // Requested download intent; the API key is the authoritative gate and
+        // the server stores (key AND this) on the session.
+        ...(downloadable && { is_downloadable: true }),
       }),
     }))
     const body = (await response.json()) as apiResponse

@@ -233,6 +233,60 @@ describe('AudioDnPlayer', () => {
     })
   })
 
+  describe('Autoplay', () => {
+    it('defaults autoplay to false and does not arm the audio element', async () => {
+      await createPlayer()
+      expect(element.autoplay).toBe(false)
+      expect(element.audio.autoplay).toBe(false)
+    })
+
+    it('arms the audio element to play the first track when autoplay is set', async () => {
+      await createPlayer({ autoplay: '' })
+      expect(element.autoplay).toBe(true)
+      expect(element.audio.autoplay).toBe(true)
+    })
+  })
+
+  describe('Downloadable', () => {
+    it('defaults downloadable to false and forwards it to the settings menu', async () => {
+      await createPlayer()
+      expect(element.downloadable).toBe(false)
+
+      const menu = element.shadowRoot?.querySelector('audiodn-settings-menu') as any
+      expect(menu?.download).toBe(false)
+    })
+
+    it('reflects the downloadable attribute and forwards the request to the session', async () => {
+      await createPlayer({
+        'api-key': 'key-abc',
+        scope: 'collection',
+        id: 'col-1',
+        variants: 'hq,lq',
+        downloadable: '',
+      })
+      expect(element.downloadable).toBe(true)
+      expect(mockFetchSession).toHaveBeenCalledWith(
+        expect.objectContaining({ downloadable: true })
+      )
+
+      const menu = element.shadowRoot?.querySelector('audiodn-settings-menu') as any
+      expect(menu?.download).toBe(true)
+    })
+
+    it('shows a localized notification when a download is refused', async () => {
+      await createPlayer({ locale: 'fr', downloadable: '' })
+
+      const menu = element.shadowRoot?.querySelector('audiodn-settings-menu')
+      menu?.dispatchEvent(new CustomEvent('adni-download-error', { bubbles: true, composed: true }))
+      await element.updateComplete
+
+      const notification = element.shadowRoot?.querySelector('audiodn-notification') as any
+      await notification?.updateComplete
+      const message = notification?.shadowRoot?.querySelector('.notification-message')
+      expect(message?.textContent?.trim()).toBe('Cette piste n’est pas téléchargeable.')
+    })
+  })
+
   describe('i18n', () => {
     it('defaults to English', async () => {
       await createPlayer()

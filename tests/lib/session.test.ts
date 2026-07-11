@@ -62,7 +62,7 @@ describe('fetchSession', () => {
 
     mockCreatePlayerSession.mockResolvedValue({ ok: true, tracks: [] })
     await fetchSession({ ...baseFetch, locale: 'de' })
-    expect(mockCreatePlayerSession).toHaveBeenCalledWith('key-1', 'collection', 'player-1', ['hq', 'lq'], undefined, 'de')
+    expect(mockCreatePlayerSession).toHaveBeenCalledWith('key-1', 'collection', 'player-1', ['hq', 'lq'], undefined, 'de', undefined)
   })
 
   it('creates a session and re-orders tracks sequentially', async () => {
@@ -76,7 +76,7 @@ describe('fetchSession', () => {
     })
 
     const result = await fetchSession({ ...baseFetch })
-    expect(mockCreatePlayerSession).toHaveBeenCalledWith('key-1', 'collection', 'player-1', ['hq', 'lq'], undefined, undefined)
+    expect(mockCreatePlayerSession).toHaveBeenCalledWith('key-1', 'collection', 'player-1', ['hq', 'lq'], undefined, undefined, undefined)
     expect(result.tracks.map(t => t.id)).toEqual(['a', 'b', 'c'])
     expect(result.tracks.map(t => t.order)).toEqual([1, 2, 3])
   })

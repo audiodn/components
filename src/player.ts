@@ -60,6 +60,16 @@ export class AudioDnPlayer extends LitElement {
   @property({ type: Number, attribute: 'volume', reflect: true })
   volume: number = 0.7
 
+  @property({ type: Boolean, attribute: 'autoplay', reflect: true })
+  autoplay: boolean = false
+
+  // Client-side download default. The API key's is_downloadable is the real,
+  // server-enforced gate: the session stores (key AND this), so setting this to
+  // true can never enable downloads the key forbids. When the key forbids it the
+  // download endpoint returns 403 and we surface a localized notification.
+  @property({ type: Boolean, attribute: 'downloadable', reflect: true })
+  downloadable: boolean = false
+
   @property({ type: Number, attribute: 'session-ttl' })
   sessionTtl?: number
 
@@ -169,6 +179,11 @@ export class AudioDnPlayer extends LitElement {
       this.scheduleSessionExpiry()
 
       if (this.tracks[0]) {
+        // When autoplay is set, arm the audio element so the first track starts
+        // as soon as it can play. Browser autoplay policies may still block
+        // playback until the user interacts with the page.
+        if (this.autoplay) this.audio.autoplay = true
+
         if (this.sessionData.firstTrack) {
           this._trackCache.set(this.tracks[0].id, this.sessionData.firstTrack)
           this.applyTrackData(this.tracks[0], this.sessionData.firstTrack)
@@ -257,6 +272,7 @@ export class AudioDnPlayer extends LitElement {
         variants: this.getVariants(),
         sessionTtl: this.sessionTtl,
         locale: this.locale,
+        downloadable: this.downloadable,
       })
       this._trackCache.clear()
       this.scheduleSessionExpiry()
@@ -515,6 +531,13 @@ export class AudioDnPlayer extends LitElement {
     this.selectVariant(variant)
   }
 
+  // The cog attempts the download and, if the server (key-derived session) says
+  // the track isn't downloadable, dispatches this so the player can show a
+  // graceful, localized message instead of a broken/blocked download.
+  handleDownloadError (): void {
+    this.notify('error', t(this.locale, 'settings.notDownloadable'))
+  }
+
   handleUIChangeVolume (event: CustomEvent): void {
     this.audio.volume = this.volume = event.detail
     this.storage.set('volume', event.detail, false)
@@ -715,7 +738,7 @@ function mainTemplate (this: AudioDnPlayer) {
         <div class="player-row-controls">
           <audiodn-play-time .elapsed=${this.currentTime} .duration=${this.activeTrack?.duration} .locale=${this.locale}></audiodn-play-time>
           <audiodn-volume-control .volume=${this.volume} @adni-volumechange=${this.handleUIChangeVolume} .locale=${this.locale}></audiodn-volume-control>
-          <audiodn-settings-menu .variants=${this.activeTrackVariants} .variant=${this.activeVariant} .trackId=${this.activeTrack?.id} .playSessionId=${this.playSession?.id} .download=${this.playSession?.isDownloadable} @adni-selectvariant=${this.handleUISelectVariant} .locale=${this.locale}></audiodn-settings-menu>
+          <audiodn-settings-menu .variants=${this.activeTrackVariants} .variant=${this.activeVariant} .trackId=${this.activeTrack?.id} .playSessionId=${this.playSession?.id} .download=${this.downloadable} @adni-selectvariant=${this.handleUISelectVariant} @adni-download-error=${this.handleDownloadError} .locale=${this.locale}></audiodn-settings-menu>
         </div>
       </div>
     </div>
@@ -977,6 +1000,12 @@ function styles ({
         grid-row: 2;
         grid-column: 5;
         align-self: center;
+        padding-right: var(--_gap);
+      }
+
+      /* When the settings cog hides itself, its cell no longer supplies the
+         right-edge gap, so hand that padding to the volume control instead. */
+      .player-row-controls:has(audiodn-settings-menu[hidden]) audiodn-volume-control {
         padding-right: var(--_gap);
       }
     }
