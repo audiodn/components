@@ -297,15 +297,25 @@ export class AudioDnWaveform extends LitElement {
     const { lineWidth, gap, height, variant } = this
     const ctx = this.ctx
 
-    const width = this.getRect().width
+    const dpr = Math.max(1, window.devicePixelRatio || 1)
+
+    // Size the backing store to the canvas' real displayed width in *device*
+    // pixels. Use the canvas' own client width (not the host rect, which
+    // includes padding) times DPR so the browser never rescales the bitmap —
+    // that rescaling is what smears thin 1px bars into uneven, anti-aliased
+    // gray instead of a flat, solid color.
+    const cssWidth = this.canvas.clientWidth || this.getRect().width
+    const deviceWidth = Math.max(1, Math.round(cssWidth * dpr))
+    const deviceHeight = Math.max(1, Math.round(height * dpr))
+
+    this.canvas.width = deviceWidth
+    this.canvas.height = deviceHeight
+
     const lineSpace = lineWidth + gap
     const numLines =
       Math.floor(
-        (width - lineWidth - (variant === 'wavy' ? lineSpace : 0)) / lineSpace
+        (cssWidth - lineWidth - (variant === 'wavy' ? lineSpace : 0)) / lineSpace
       ) + 1
-
-    this.canvas.setAttribute('width', `${width}`)
-    this.canvas.setAttribute('height', `${height}`)
 
     const lineData = []
     for (let i = 0; i < numLines; i++) {
@@ -313,57 +323,60 @@ export class AudioDnWaveform extends LitElement {
       lineData.push(this.data[index])
     }
 
-    ctx.clearRect(0, 0, width, height)
+    // Resizing the canvas above already reset the context to an identity
+    // transform, so vertical/reflection bars are drawn directly in device px.
+    ctx.clearRect(0, 0, deviceWidth, deviceHeight)
+    ctx.fillStyle = this.lineColor
     ctx.strokeStyle = this.lineColor
-    ctx.lineWidth = this.lineWidth
+
+    // Bar width and stride snapped to whole device pixels so every bar is a
+    // solid, evenly-shaded block at any DPR.
+    const barWidth = Math.max(1, Math.round(lineWidth * dpr))
+    const step = lineSpace * dpr
 
     if (variant === 'vertical') {
       lineData.forEach((value, index) => {
         if (!value) return
 
-        const x = index * lineSpace + Math.floor(lineWidth / 2) + 0.5
-        const lineHeight = Math.round(value * height)
-        const y = Math.round((height - lineHeight) / 2)
+        const x = Math.round(index * step)
+        const barHeight = Math.round(value * deviceHeight)
+        const y = Math.round((deviceHeight - barHeight) / 2)
 
-        ctx.beginPath()
-        ctx.moveTo(x, y)
-        ctx.lineTo(x, y + lineHeight)
-        ctx.stroke()
+        ctx.fillRect(x, y, barWidth, barHeight)
       })
     } else if (variant === 'reflection') {
       // Flat-bottom bars on top, a shorter faded reflection beneath whose
       // lean sweeps right→left as progress goes 0→1.
       const ratio = Math.max(0, this.reflectionSize)
-      const mainHeight = Math.round(height / (1 + ratio))
-      const reflectionHeight = height - mainHeight
+      const mainHeight = Math.round(deviceHeight / (1 + ratio))
+      const reflectionHeight = deviceHeight - mainHeight
       const baselineY = mainHeight
 
       const clampedProgress = Math.max(0, Math.min(1, this.progress))
       const angleRad = (0.5 - clampedProgress) * 2 * (this.reflectionAngle * Math.PI / 180)
       const skew = Math.tan(angleRad)
 
-      // Main bars, anchored to the baseline and growing upward.
-      ctx.strokeStyle = this.lineColor
+      // Main bars: crisp filled blocks anchored to the baseline, growing up.
+      ctx.fillStyle = this.lineColor
       lineData.forEach((value, index) => {
         if (!value) return
-        const x = index * lineSpace + Math.floor(lineWidth / 2) + 0.5
+        const x = Math.round(index * step)
         const barHeight = Math.round(value * mainHeight)
-        ctx.beginPath()
-        ctx.moveTo(x, baselineY)
-        ctx.lineTo(x, baselineY - barHeight)
-        ctx.stroke()
+        ctx.fillRect(x, baselineY - barHeight, barWidth, barHeight)
       })
 
       // Reflection: faded, quickly-decaying, leaning by the progress angle.
+      // Diagonal by nature, so it's drawn as a stroke.
       const grad = ctx.createLinearGradient(0, baselineY, 0, baselineY + reflectionHeight)
       grad.addColorStop(0, this.colorToRgba(this.lineColor, this.reflectionOpacity))
       grad.addColorStop(0.75, this.colorToRgba(this.lineColor, this.reflectionOpacity * 0.5))
       grad.addColorStop(1, this.colorToRgba(this.lineColor, 0))
       ctx.strokeStyle = grad
+      ctx.lineWidth = barWidth
 
       lineData.forEach((value, index) => {
         if (!value) return
-        const x = index * lineSpace + Math.floor(lineWidth / 2) + 0.5
+        const x = Math.round(index * step) + barWidth / 2
         const barHeight = value * reflectionHeight
         ctx.beginPath()
         ctx.moveTo(x, baselineY)
@@ -371,10 +384,17 @@ export class AudioDnWaveform extends LitElement {
         ctx.stroke()
       })
     } else if (variant === 'wavy') {
+      // Curves anti-alias by nature; draw in CSS-pixel space scaled by DPR so
+      // the strokes stay sharp without rescaling artifacts. The canvas resize
+      // above left an identity transform, so scaling by DPR here is enough.
+      ctx.scale(dpr, dpr)
+      ctx.lineWidth = this.lineWidth
+      ctx.save()
+
       const centerY = height / 2
       ctx.translate(0, centerY)
 
-      const segmentWidth = width / lineData.length
+      const segmentWidth = cssWidth / lineData.length
       for (const [i, entry] of lineData.entries()) {
         if (!entry) return
 
