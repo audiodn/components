@@ -1,0 +1,109 @@
+{
+  "name": "@audiodn/components",
+  "version": "0.1.0",
+  "description": "Custom web components for Audio Delivery Network",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./player": {
+      "import": "./dist/player.js",
+      "types": "./dist/player.d.ts"
+    },
+    "./uploader": {
+      "import": "./dist/uploader.js",
+      "types": "./dist/uploader.d.ts"
+    },
+    "./waveform": {
+      "import": "./dist/waveform.js",
+      "types": "./dist/waveform.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "audio",
+    "player",
+    "uploader",
+    "web-components",
+    "custom-elements",
+    "lit",
+    "typescript",
+    "music",
+    "media"
+  ],
+  "author": {
+    "name": "AudioDN",
+    "url": "https://github.com/audiodn"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/audiodn/audiodn-components.git"
+  },
+  "bugs": {
+    "url": "https://github.com/audiodn/audiodn-components/issues"
+  },
+  "homepage": "https://github.com/audiodn/audiodn-components#readme",
+  "sideEffects": [
+    "**/index.ts",
+    "**/player.ts",
+    "**/uploader.ts",
+    "**/waveform.ts",
+    "**/dev-waveform.ts",
+    "**/components/*.ts",
+    "dist/*.js",
+    "dist/shared/*.js"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && vite build --mode demo && npm run build:types",
+    "build:lib": "tsc --noEmit && vite build",
+    "build:demo": "tsc --noEmit && vite build --mode demo",
+    "build:types": "tsc --project tsconfig.build.json --emitDeclarationOnly && node scripts/rewrite-dts-extensions.mjs dist",
+    "preview": "vite preview",
+    "visualize-bundle": "vite build --debug",
+    "lint": "npx eslint",
+    "fmt": "npx eslint --fix",
+    "setup": "git config core.hooksPath '.githooks/_'; cp .env.example .env; npm install",
+    "update": "npx npm-check-updates -i --format group",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "lit": "^3.3.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.0.2",
+    "@eslint/js": "^9.29.0",
+    "@open-wc/testing": "^3.1.7",
+    "@testing-library/dom": "^9.3.4",
+    "@testing-library/jest-dom": "^6.4.2",
+    "@vitest/ui": "^2.1.8",
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^9.29.0",
+    "globals": "^16.2.0",
+    "http-serve": "^1.0.1",
+    "jsdom": "^25.0.1",
+    "neostandard": "^0.12.1",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.34.1",
+    "vite": "^6.3.5",
+    "vite-bundle-analyzer": "^1.0.0",
+    "vitest": "^2.1.8"
+  }
+}

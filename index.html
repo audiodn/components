@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Player — ADN Components</title>
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@3/dist/vuetify.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/src/dev-shared.css">
+</head>
+<body>
+
+<div id="app">
+  <v-app theme="dark">
+    <v-app-bar density="compact" flat color="surface">
+      <v-app-bar-nav-icon class="d-lg-none" @click="drawer = !drawer"></v-app-bar-nav-icon>
+      <v-app-bar-title class="text-body-1 font-weight-bold">ADN Components</v-app-bar-title>
+    </v-app-bar>
+
+    <v-navigation-drawer v-model="drawer" :permanent="lgAndUp" color="surface">
+      <v-list nav density="compact">
+        <v-list-item prepend-icon="mdi-play-circle-outline" title="Player" href="/" :active="true"></v-list-item>
+        <v-list-item prepend-icon="mdi-upload-outline" title="Uploader" href="/uploader.html"></v-list-item>
+        <v-list-item prepend-icon="mdi-waveform" title="Waveform" href="/waveform.html"></v-list-item>
+      </v-list>
+
+      <v-divider></v-divider>
+
+      <v-list nav density="compact" class="text-caption">
+        <v-list-subheader>On this page</v-list-subheader>
+        <v-list-item title="Sizes" href="#player-sizes" :active="activeSection === 'player-sizes'"></v-list-item>
+        <v-list-item title="Playlist" href="#player-playlist" :active="activeSection === 'player-playlist'"></v-list-item>
+        <v-list-item title="Themes" href="#player-themes" :active="activeSection === 'player-themes'"></v-list-item>
+      </v-list>
+    </v-navigation-drawer>
+
+    <v-main>
+      <div class="page-content">
+        <div class="page-header">
+          <h1>Player</h1>
+          <p>Audio player component with cover art, waveform, and tracklist support.</p>
+        </div>
+
+        <section id="player-sizes">
+          <h2>Sizes</h2>
+          <p class="desc">The <code>size</code> attribute controls cover art, typography, and play button scaling.</p>
+
+          <div class="variant-label">Small</div>
+          <audiodn-player
+            api-key="%VITE_DEMO_PLAYER_API_KEY%"
+            scope="track"
+            id="aa83275b-3d19-4cf4-99df-92de7530b72c"
+            variants="hq,lq"
+            size="small"
+          ></audiodn-player>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-player
+  api-key="YOUR_API_KEY"
+  scope="track"
+  id="TRACK_ID"
+  variants="hq,lq"
+  size="small"
+&gt;&lt;/audiodn-player&gt;</code></pre></div>
+
+          <div class="variant-label">Regular</div>
+          <audiodn-player
+            api-key="%VITE_DEMO_PLAYER_API_KEY%"
+            scope="track"
+            id="e6e0f0ba-cf64-4de3-9596-5687440c3185"
+            variants="hq,lq"
+            size="regular"
+          ></audiodn-player>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-player
+  api-key="YOUR_API_KEY"
+  scope="track"
+  id="TRACK_ID"
+  variants="hq,lq"
+  size="regular"
+&gt;&lt;/audiodn-player&gt;</code></pre></div>
+
+          <div class="variant-label">Large</div>
+          <audiodn-player
+            api-key="%VITE_DEMO_PLAYER_API_KEY%"
+            scope="track"
+            id="8096a1e7-87da-4d17-b37f-21e04325b90d"
+            variants="hq,lq"
+            size="large"
+          ></audiodn-player>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-player
+  api-key="YOUR_API_KEY"
+  scope="track"
+  id="TRACK_ID"
+  variants="hq,lq"
+  size="large"
+&gt;&lt;/audiodn-player&gt;</code></pre></div>
+        </section>
+
+        <section id="player-playlist">
+          <h2>Playlist</h2>
+          <p class="desc">A collection with multiple tracks and a tracklist. Uses <code>scope="collection"</code>.</p>
+
+          <audiodn-player
+            api-key="%VITE_DEMO_PLAYER_API_KEY%"
+            scope="collection"
+            id="96e36d8f-8291-4583-8096-161be8b1010b"
+            variants="hq,lq"
+            size="regular"
+          ></audiodn-player>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-player
+  api-key="YOUR_API_KEY"
+  scope="collection"
+  id="COLLECTION_ID"
+  variants="hq,lq"
+  size="regular"
+&gt;&lt;/audiodn-player&gt;</code></pre></div>
+        </section>
+
+        <section id="player-themes">
+          <h2>Themes</h2>
+          <p class="desc">Override CSS custom properties on the host to restyle the player without touching internals.</p>
+
+          <div class="variant-label">Light / Dark (system preference)</div>
+          <audiodn-player
+            class="theme-lightdark"
+            api-key="%VITE_DEMO_PLAYER_API_KEY%"
+            scope="collection"
+            id="96e36d8f-8291-4583-8096-161be8b1010b"
+            variants="hq,lq"
+            size="regular"
+          ></audiodn-player>
+          <div class="code-block"><pre><code class="language-css">.theme-lightdark {
+  --adn-main-border: 1px solid light-dark(#ccc, #444);
+  --adn-bg: light-dark(#fff, #111);
+  --adn-bg-light: light-dark(#ddd, #333);
+  --adn-color-font: light-dark(#222, #eee);
+  --adn-color-font-muted: light-dark(#666, #aaa);
+  --adn-color-accent: light-dark(#333, #eee);
+  --adn-color-accent-alt: light-dark(#fff, #111);
+  --adn-waveform-color-playhead: light-dark(#333, #eee);
+  --adn-coverart-filter: grayscale(100%);
+}</code></pre><pre><code class="language-html">&lt;audiodn-player
+  class="theme-lightdark"
+  api-key="YOUR_API_KEY"
+  scope="collection"
+  id="COLLECTION_ID"
+  variants="hq,lq"
+  size="regular"
+&gt;&lt;/audiodn-player&gt;</code></pre></div>
+
+          <div class="variant-label">Midnight</div>
+          <audiodn-player
+            class="theme-minimal"
+            api-key="%VITE_DEMO_PLAYER_API_KEY%"
+            scope="collection"
+            id="96e36d8f-8291-4583-8096-161be8b1010b"
+            variants="hq,lq"
+            size="regular"
+          ></audiodn-player>
+          <div class="code-block"><pre><code class="language-css">.theme-midnight {
+  --adn-bg: #1a1a2e;
+  --adn-bg-light: #2a2a4e;
+  --adn-color-font: #e0e0e0;
+  --adn-color-font-muted: #8888aa;
+  --adn-color-accent: #e94560;
+  --adn-color-accent-rgb: 233, 69, 96;
+  --adn-color-accent-alt: #fff;
+  --adn-radius: 12px;
+  --adn-padding: 0.5rem;
+  --adn-coverart-transform: none;
+  --adn-coverart-radius: 8px;
+  --adn-playbutton-radius: 8px;
+}</code></pre><pre><code class="language-html">&lt;audiodn-player
+  class="theme-midnight"
+  api-key="YOUR_API_KEY"
+  scope="collection"
+  id="COLLECTION_ID"
+  variants="hq,lq"
+  size="regular"
+&gt;&lt;/audiodn-player&gt;</code></pre></div>
+
+          <div class="variant-label">Electric (single track)</div>
+          <audiodn-player
+            class="theme-electric"
+            api-key="%VITE_DEMO_PLAYER_API_KEY%"
+            scope="track"
+            id="2eb96774-70a7-45c7-8d38-4aec268cba2f"
+            variants="hq,lq"
+            size="regular"
+          ></audiodn-player>
+          <div class="code-block"><pre><code class="language-css">.theme-electric {
+  --adn-bg: #0a0a0f;
+  --adn-bg-light: #16161f;
+  --adn-color-font: #e4e4f0;
+  --adn-color-font-muted: #7878a0;
+  --adn-color-accent: #00d4ff;
+  --adn-color-accent-rgb: 0, 212, 255;
+  --adn-color-accent-alt: #0a0a0f;
+  --adn-radius: 4px;
+  --adn-main-border: 1px solid #00d4ff33;
+  --adn-box-shadow: 0 0 20px #00d4ff15;
+  --adn-waveform-color-playhead: #00d4ff;
+  --adn-coverart-transform: none;
+  --adn-coverart-radius: 2px;
+  --adn-playbutton-radius: 4px;
+}</code></pre><pre><code class="language-html">&lt;audiodn-player
+  class="theme-electric"
+  api-key="YOUR_API_KEY"
+  scope="track"
+  id="TRACK_ID"
+  variants="hq,lq"
+  size="regular"
+&gt;&lt;/audiodn-player&gt;</code></pre></div>
+        </section>
+      </div>
+    </v-main>
+  </v-app>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify@3/dist/vuetify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js"></script>
+<script>
+  const { createApp } = Vue
+  const vuetify = Vuetify.createVuetify({
+    theme: { defaultTheme: 'dark' },
+    defaults: { global: { ripple: false } }
+  })
+
+  createApp({
+    compilerOptions: { isCustomElement: tag => tag.startsWith('audiodn-') },
+    data: () => ({ drawer: null, activeSection: '' }),
+    computed: {
+      lgAndUp () { return this.$vuetify.display.lgAndUp }
+    },
+    mounted () {
+      const sections = document.querySelectorAll('section[id]')
+      const observer = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) this.activeSection = entry.target.id
+        }
+      }, { rootMargin: '-20% 0px -70% 0px' })
+      sections.forEach(s => observer.observe(s))
+    }
+  }).use(vuetify).mount('#app')
+</script>
+<script type="module">
+  import './src/player.ts'
+  import './src/uploader.ts'
+</script>
+</body>
+</html>

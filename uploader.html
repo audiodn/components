@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Uploader — ADN Components</title>
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@3/dist/vuetify.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/src/dev-shared.css">
+</head>
+<body>
+
+<div id="app">
+  <v-app theme="dark">
+    <v-app-bar density="compact" flat color="surface">
+      <v-app-bar-nav-icon class="d-lg-none" @click="drawer = !drawer"></v-app-bar-nav-icon>
+      <v-app-bar-title class="text-body-1 font-weight-bold">ADN Components</v-app-bar-title>
+    </v-app-bar>
+
+    <v-navigation-drawer v-model="drawer" :permanent="lgAndUp" color="surface">
+      <v-list nav density="compact">
+        <v-list-item prepend-icon="mdi-play-circle-outline" title="Player" href="/"></v-list-item>
+        <v-list-item prepend-icon="mdi-upload-outline" title="Uploader" href="/uploader.html" :active="true"></v-list-item>
+        <v-list-item prepend-icon="mdi-waveform" title="Waveform" href="/waveform.html"></v-list-item>
+      </v-list>
+
+      <v-divider></v-divider>
+
+      <v-list nav density="compact" class="text-caption">
+        <v-list-subheader>On this page</v-list-subheader>
+        <v-list-item title="Default" href="#uploader-default" :active="activeSection === 'uploader-default'"></v-list-item>
+        <v-list-item title="Themes" href="#uploader-themes" :active="activeSection === 'uploader-themes'"></v-list-item>
+      </v-list>
+    </v-navigation-drawer>
+
+    <v-main>
+      <div class="page-content">
+        <div class="page-header">
+          <h1>Uploader</h1>
+          <p>Drag-and-drop file uploader with progress tracking and theme support.</p>
+        </div>
+
+        <section id="uploader-default">
+          <h2>Default</h2>
+          <p class="desc">Drag-and-drop file uploader with progress tracking. Requires an API key + collection ID.</p>
+
+          <div class="uploader-wrap">
+            <audiodn-uploader
+              api-key="%VITE_DEMO_UPLOADER_API_KEY%"
+              collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
+            ></audiodn-uploader>
+          </div>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-uploader
+  api-key="YOUR_API_KEY"
+  collection-id="COLLECTION_ID"
+&gt;&lt;/audiodn-uploader&gt;</code></pre></div>
+        </section>
+
+        <section id="uploader-themes">
+          <h2>Themes</h2>
+          <p class="desc">Override CSS custom properties on the host to restyle the uploader. Uses the same <code>--adn-*</code> API as the player.</p>
+
+          <div class="variant-label">Light / Dark (system preference)</div>
+          <div class="uploader-wrap">
+            <audiodn-uploader
+              class="theme-uploader-lightdark"
+              api-key="%VITE_DEMO_UPLOADER_API_KEY%"
+              collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
+            ></audiodn-uploader>
+          </div>
+          <div class="code-block"><pre><code class="language-css">.theme-uploader-lightdark {
+  --adn-main-border: 1px solid light-dark(#ccc, #444);
+  --adn-bg: light-dark(#fff, #111);
+  --adn-bg-light: light-dark(#eee, #222);
+  --adn-color-font: light-dark(#222, #eee);
+  --adn-color-font-muted: light-dark(#666, #aaa);
+  --adn-color-accent: light-dark(#0066cc, #4da6ff);
+  --adn-color-accent-alt: light-dark(#fff, #111);
+  --adn-border-color: light-dark(#ccc, #444);
+  --adn-radius: 6px;
+}</code></pre><pre><code class="language-html">&lt;audiodn-uploader
+  class="theme-uploader-lightdark"
+  api-key="YOUR_API_KEY"
+  collection-id="COLLECTION_ID"
+&gt;&lt;/audiodn-uploader&gt;</code></pre></div>
+
+          <div class="variant-label">Midnight</div>
+          <div class="uploader-wrap">
+            <audiodn-uploader
+              class="theme-uploader-midnight"
+              api-key="%VITE_DEMO_UPLOADER_API_KEY%"
+              collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
+            ></audiodn-uploader>
+          </div>
+          <div class="code-block"><pre><code class="language-css">.theme-uploader-midnight {
+  --adn-bg: #1a1a2e;
+  --adn-bg-light: #2a2a4e;
+  --adn-color-font: #e0e0e0;
+  --adn-color-font-muted: #8888aa;
+  --adn-color-accent: #7c3aed;
+  --adn-color-accent-rgb: 124, 58, 237;
+  --adn-color-accent-alt: #fff;
+  --adn-border-color: #3a3a5e;
+  --adn-color-highlight: rgba(124, 58, 237, 0.12);
+  --adn-radius: 12px;
+  --adn-main-border: 1px solid #3a3a5e;
+  --adn-box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}</code></pre><pre><code class="language-html">&lt;audiodn-uploader
+  class="theme-uploader-midnight"
+  api-key="YOUR_API_KEY"
+  collection-id="COLLECTION_ID"
+&gt;&lt;/audiodn-uploader&gt;</code></pre></div>
+        </section>
+      </div>
+    </v-main>
+  </v-app>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify@3/dist/vuetify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js"></script>
+<script>
+  const { createApp } = Vue
+  const vuetify = Vuetify.createVuetify({
+    theme: { defaultTheme: 'dark' },
+    defaults: { global: { ripple: false } }
+  })
+
+  createApp({
+    compilerOptions: { isCustomElement: tag => tag.startsWith('audiodn-') },
+    data: () => ({ drawer: null, activeSection: '' }),
+    computed: {
+      lgAndUp () { return this.$vuetify.display.lgAndUp }
+    },
+    mounted () {
+      const sections = document.querySelectorAll('section[id]')
+      const observer = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) this.activeSection = entry.target.id
+        }
+      }, { rootMargin: '-20% 0px -70% 0px' })
+      sections.forEach(s => observer.observe(s))
+    }
+  }).use(vuetify).mount('#app')
+</script>
+<script type="module">
+  import './src/uploader.ts'
+</script>
+</body>
+</html>

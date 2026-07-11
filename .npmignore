@@ -1,0 +1,40 @@
+# The published tarball is governed by the `files` allowlist in package.json
+# (dist, README.md, LICENSE). This file is a safety net to keep dev-only
+# artifacts out even if `files` changes.
+
+# Source & tests
+src/
+tests/
+
+# Demo site output (never published)
+demo-dist/
+
+# Development configs
+vite.config.js
+vitest.config.ts
+tsconfig.json
+tsconfig.build.json
+eslint.config.js
+
+# Development tools
+makefile
+.nvmrc
+.githooks/
+
+# Build artifacts
+*.log
+coverage/
+
+# Environment files
+.env
+.env.example
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore

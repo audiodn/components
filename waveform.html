@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Waveform — ADN Components</title>
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@3/dist/vuetify.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/src/dev-shared.css">
+</head>
+<body>
+
+<div id="app">
+  <v-app theme="dark">
+    <v-app-bar density="compact" flat color="surface">
+      <v-app-bar-nav-icon class="d-lg-none" @click="drawer = !drawer"></v-app-bar-nav-icon>
+      <v-app-bar-title class="text-body-1 font-weight-bold">ADN Components</v-app-bar-title>
+    </v-app-bar>
+
+    <v-navigation-drawer v-model="drawer" :permanent="lgAndUp" color="surface">
+      <v-list nav density="compact">
+        <v-list-item prepend-icon="mdi-play-circle-outline" title="Player" href="/"></v-list-item>
+        <v-list-item prepend-icon="mdi-upload-outline" title="Uploader" href="/uploader.html"></v-list-item>
+        <v-list-item prepend-icon="mdi-waveform" title="Waveform" href="/waveform.html" :active="true"></v-list-item>
+      </v-list>
+
+      <v-divider></v-divider>
+
+      <v-list nav density="compact" class="text-caption">
+        <v-list-subheader>On this page</v-list-subheader>
+        <v-list-item title="Vertical" href="#waveform-vertical" :active="activeSection === 'waveform-vertical'"></v-list-item>
+        <v-list-item title="Reflection" href="#waveform-reflection" :active="activeSection === 'waveform-reflection'"></v-list-item>
+        <v-list-item title="Wavy" href="#waveform-wavy" :active="activeSection === 'waveform-wavy'"></v-list-item>
+        <v-list-item title="Thin Lines" href="#waveform-thin" :active="activeSection === 'waveform-thin'"></v-list-item>
+        <v-list-item title="Thick Wavy" href="#waveform-thick" :active="activeSection === 'waveform-thick'"></v-list-item>
+        <v-list-item title="Playhead" href="#waveform-playhead" :active="activeSection === 'waveform-playhead'"></v-list-item>
+      </v-list>
+    </v-navigation-drawer>
+
+    <v-main>
+      <div class="page-content">
+        <div class="page-header">
+          <h1>Waveform</h1>
+          <p>Standalone waveform visualization component with multiple drawing styles. Level data comes from the play session API response at <code>first_track.levels</code>.</p>
+        </div>
+
+        <section id="waveform-vertical">
+          <h2>Vertical</h2>
+          <p class="desc">Default vertical bar style. Configurable <code>line-width</code>, <code>gap</code>, and <code>height</code> via attributes.</p>
+          <div class="sub-showcase" style="flex-direction: column; align-items: stretch;">
+            <audiodn-waveform id="wf-vertical" variant="vertical" height="100" line-width="2" gap="3" progress="0.6"></audiodn-waveform>
+          </div>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-waveform
+  variant="vertical"
+  height="100"
+  line-width="2"
+  gap="3"
+  progress="0.6"
+&gt;&lt;/audiodn-waveform&gt;</code></pre><pre><code class="language-javascript">// Level data is returned by the play session API:
+// GET /v1/play-session/:scope/:id
+// Response: { first_track: { levels: { levels: [...], min, max, avg } } }
+
+const { levels } = response.first_track;
+
+const waveform = document.querySelector('audiodn-waveform');
+waveform.levels = levels.levels; // array of 0–1 amplitude values
+
+// Frameworks with property bindings (Vue, React, Svelte, Angular, etc.)
+// can pass levels directly — no querySelector needed:
+//   Vue:    &lt;audiodn-waveform :levels="levels.levels" /&gt;
+//   React:  &lt;audiodn-waveform ref={r =&gt; r &amp;&amp; (r.levels = data)} /&gt;</code></pre></div>
+        </section>
+
+        <section id="waveform-reflection">
+          <h2>Reflection</h2>
+          <p class="desc">Bars with a flat baseline and a faded reflection. The reflection leans with playback — right at 0%, straight down at 50%, left at 100%. Tune the lean and size with <code>reflection-angle</code> and <code>reflection-size</code>.</p>
+          <div class="sub-showcase" style="flex-direction: column; align-items: stretch;">
+            <audiodn-waveform id="wf-reflection" variant="reflection" height="120" line-width="2" gap="3" progress="0.5"></audiodn-waveform>
+          </div>
+          <p class="desc" style="margin-top: 1rem;">The lean at fixed progress values — 0% (right), 50% (center), 100% (left):</p>
+          <div class="sub-showcase" style="flex-direction: column; align-items: stretch; gap: 1rem;">
+            <audiodn-waveform class="wf-reflection-static" variant="reflection" height="100" line-width="2" gap="3" progress="0"></audiodn-waveform>
+            <audiodn-waveform class="wf-reflection-static" variant="reflection" height="100" line-width="2" gap="3" progress="0.5"></audiodn-waveform>
+            <audiodn-waveform class="wf-reflection-static" variant="reflection" height="100" line-width="2" gap="3" progress="1"></audiodn-waveform>
+          </div>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-waveform
+  variant="reflection"
+  height="120"
+  line-width="2"
+  gap="3"
+  progress="0.5"
+  reflection-angle="45"
+  reflection-size="0.25"
+&gt;&lt;/audiodn-waveform&gt;</code></pre><pre><code class="language-javascript">const { levels } = response.first_track;
+
+const waveform = document.querySelector('audiodn-waveform');
+waveform.levels = levels.levels;
+
+// Drive `progress` (0–1) from playback to sweep the reflection.
+waveform.progress = currentTime / duration;</code></pre></div>
+        </section>
+
+        <section id="waveform-wavy">
+          <h2>Wavy</h2>
+          <p class="desc">Smooth curved wave style using <code>variant="wavy"</code>.</p>
+          <div class="sub-showcase" style="flex-direction: column; align-items: stretch;">
+            <audiodn-waveform id="wf-wavy" variant="wavy" height="100" line-width="2" gap="3" progress="0.35"></audiodn-waveform>
+          </div>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-waveform
+  variant="wavy"
+  height="100"
+  line-width="2"
+  gap="3"
+  progress="0.35"
+&gt;&lt;/audiodn-waveform&gt;</code></pre><pre><code class="language-javascript">const { levels } = response.first_track;
+
+const waveform = document.querySelector('audiodn-waveform');
+waveform.levels = levels.levels;</code></pre></div>
+        </section>
+
+        <section id="waveform-thin">
+          <h2>Thin Lines</h2>
+          <p class="desc">Narrow bars with tight spacing: <code>line-width="1"</code>, <code>gap="1"</code>. No <code>progress</code> set — the waveform renders at half opacity with no playhead.</p>
+          <div class="sub-showcase" style="flex-direction: column; align-items: stretch;">
+            <audiodn-waveform id="wf-thin" variant="vertical" height="80" line-width="1" gap="1"></audiodn-waveform>
+          </div>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-waveform
+  variant="vertical"
+  height="80"
+  line-width="1"
+  gap="1"
+&gt;&lt;/audiodn-waveform&gt;</code></pre><pre><code class="language-javascript">const { levels } = response.first_track;
+
+const waveform = document.querySelector('audiodn-waveform');
+waveform.levels = levels.levels;</code></pre></div>
+        </section>
+
+        <section id="waveform-thick">
+          <h2>Thick Wavy</h2>
+          <p class="desc">Wide wavy curves with generous spacing: <code>line-width="4"</code>, <code>gap="6"</code>. No <code>progress</code> set — the waveform renders at half opacity with no playhead.</p>
+          <div class="sub-showcase" style="flex-direction: column; align-items: stretch;">
+            <audiodn-waveform id="wf-thick" variant="wavy" height="80" line-width="4" gap="6"></audiodn-waveform>
+          </div>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-waveform
+  variant="wavy"
+  height="80"
+  line-width="4"
+  gap="6"
+&gt;&lt;/audiodn-waveform&gt;</code></pre><pre><code class="language-javascript">const { levels } = response.first_track;
+
+const waveform = document.querySelector('audiodn-waveform');
+waveform.levels = levels.levels;</code></pre></div>
+        </section>
+
+        <section id="waveform-playhead">
+          <h2>Playhead</h2>
+          <p class="desc">Shows a playhead position at 40% with highlight overlay.</p>
+          <div class="sub-showcase" style="flex-direction: column; align-items: stretch;">
+            <audiodn-waveform id="wf-playhead" variant="vertical" height="100" line-width="2" gap="3" progress="0.4"></audiodn-waveform>
+          </div>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-waveform
+  variant="vertical"
+  height="100"
+  line-width="2"
+  gap="3"
+  progress="0.4"
+&gt;&lt;/audiodn-waveform&gt;</code></pre><pre><code class="language-javascript">const { levels } = response.first_track;
+
+const waveform = document.querySelector('audiodn-waveform');
+waveform.levels = levels.levels;</code></pre></div>
+        </section>
+      </div>
+    </v-main>
+  </v-app>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify@3/dist/vuetify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js"></script>
+<script>
+  const { createApp } = Vue
+  const vuetify = Vuetify.createVuetify({
+    theme: { defaultTheme: 'dark' },
+    defaults: { global: { ripple: false } }
+  })
+
+  createApp({
+    compilerOptions: { isCustomElement: tag => tag.startsWith('audiodn-') },
+    data: () => ({ drawer: null, activeSection: '' }),
+    computed: {
+      lgAndUp () { return this.$vuetify.display.lgAndUp }
+    },
+    mounted () {
+      const sections = document.querySelectorAll('section[id]')
+      const observer = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) this.activeSection = entry.target.id
+        }
+      }, { rootMargin: '-20% 0px -70% 0px' })
+      sections.forEach(s => observer.observe(s))
+    }
+  }).use(vuetify).mount('#app')
+</script>
+<script type="module">
+  import './src/dev-waveform.ts'
+</script>
+</body>
+</html>

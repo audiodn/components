@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo "[ PrePush ]: Linting code "
+node --run lint
