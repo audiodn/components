@@ -255,7 +255,7 @@ describe('AudioDnPlayer', () => {
       expect(progress?.locale).toBe('de')
     })
 
-    it('localizes the loading skeleton label', async () => {
+    it('localizes the loader label', async () => {
       mockFetchSession.mockImplementation(() => new Promise(() => {}))
       const el = document.createElement('audiodn-player')
       el.setAttribute('locale', 'es')

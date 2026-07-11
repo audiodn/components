@@ -120,12 +120,12 @@ describe('i18n — uploader', () => {
     expect(button?.textContent?.trim()).toBe('Réessayer')
   })
 
-  it('localizes the loading skeleton', async () => {
-    el.isLoading = true
+  it('localizes the loader', async () => {
+    el.showLoader = true
     el.error = undefined
     await el.updateComplete
 
-    const skeleton = el.shadowRoot?.querySelector('.uploader-skeleton')
-    expect(skeleton?.getAttribute('aria-label')).toBe('Chargement du téléverseur')
+    const loading = el.shadowRoot?.querySelector('.uploader-loading')
+    expect(loading?.getAttribute('aria-label')).toBe('Chargement du téléverseur')
   })
 })

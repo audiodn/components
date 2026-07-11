@@ -27,6 +27,11 @@ declare global {
 
 const PROGRESS_THROTTLE_MS = 100
 
+// A single slick loader is shown for at most this long while the upload session
+// is created. It disappears as soon as the session is ready, or when this timer
+// elapses — whichever comes first.
+const LOADER_DURATION_MS = 1000
+
 @customElement('audiodn-uploader')
 export class AudiodnUploader extends LitElement {
   @property({ type: String, attribute: 'upload-session-id' })
@@ -60,11 +65,15 @@ export class AudiodnUploader extends LitElement {
   isLoading: boolean = true
 
   @state()
+  showLoader: boolean = true
+
+  @state()
   isDragover: boolean = false
 
   private _progressTimers = new Map<UploadingFile, number>()
   private _removeTimeouts: ReturnType<typeof setTimeout>[] = []
   private _sessionTimer = new SessionExpiryTimer()
+  private _loaderTimer?: ReturnType<typeof setTimeout>
 
   static styles = styles({ globalReset, globalVariables })
 
@@ -97,6 +106,10 @@ export class AudiodnUploader extends LitElement {
   disconnectedCallback () {
     super.disconnectedCallback()
     this._sessionTimer.clear()
+    if (this._loaderTimer) {
+      clearTimeout(this._loaderTimer)
+      this._loaderTimer = undefined
+    }
     for (const file of this.files) {
       if (file.xhr) {
         file.xhr.abort()
@@ -129,7 +142,28 @@ export class AudiodnUploader extends LitElement {
     this.loadSession()
   }
 
+  // Show the loader and arm a max-duration timer. If loading takes longer than
+  // LOADER_DURATION_MS the loader clears anyway and the drop zone renders.
+  private startLoader () {
+    this.showLoader = true
+    if (this._loaderTimer) clearTimeout(this._loaderTimer)
+    this._loaderTimer = setTimeout(() => {
+      this.showLoader = false
+      this._loaderTimer = undefined
+    }, LOADER_DURATION_MS)
+  }
+
+  // Hide the loader immediately (loading finished before the timer elapsed).
+  private dismissLoader () {
+    if (this._loaderTimer) {
+      clearTimeout(this._loaderTimer)
+      this._loaderTimer = undefined
+    }
+    this.showLoader = false
+  }
+
   async loadSession () {
+    this.startLoader()
     try {
       let sessionData = null
       if (this.uploadSessionId) {
@@ -182,6 +216,7 @@ export class AudiodnUploader extends LitElement {
       }))
     } finally {
       this.isLoading = false
+      this.dismissLoader()
     }
   }
 
@@ -454,13 +489,10 @@ function template (this: AudiodnUploader) {
             </button>
           </div>
         `
-      : this.isLoading
+      : this.showLoader
         ? html`
-            <div class="uploader-skeleton" role="status" aria-label=${t(this.locale, 'uploader.aria.loading')}>
-              <div class="skel uploader-skel-icon"></div>
-              <div class="skel uploader-skel-title"></div>
-              <div class="skel uploader-skel-divider"></div>
-              <div class="skel uploader-skel-button"></div>
+            <div class="uploader-loading" role="status" aria-label=${t(this.locale, 'uploader.aria.loading')}>
+              <span class="uploader-loader" aria-hidden="true"></span>
               <span class="sr-only">${t(this.locale, 'uploader.loadingText')}</span>
             </div>
           `
@@ -877,48 +909,29 @@ function styles ({
       display: none;
     }
 
-    /* Skeleton mirrors the drop zone so the layout doesn't jump on load. */
-    .uploader-skeleton {
-      --_skel-base: var(--adn-skeleton-bg, var(--_bg-light));
-      --_skel-highlight: var(--adn-skeleton-highlight, rgba(255, 255, 255, 0.09));
+    /* A single slick spinner sized to the drop zone so the layout doesn't jump. */
+    .uploader-loading {
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: var(--space-m);
+      justify-content: center;
+      min-height: 148px;
       padding: var(--space-l);
       border: 2px dashed var(--_border-color);
       border-radius: var(--_radius);
     }
 
-    .skel {
-      border-radius: 4px;
-      background-color: var(--_skel-base);
-      background-image: linear-gradient(90deg, transparent 25%, var(--_skel-highlight) 50%, transparent 75%);
-      background-size: 300% 100%;
-      background-repeat: no-repeat;
-      animation: skel-shimmer 1.4s ease-in-out infinite;
-    }
-
-    .uploader-skel-icon {
-      width: 48px;
-      height: 48px;
+    .uploader-loader {
+      width: var(--adn-loader-size, 40px);
+      height: var(--adn-loader-size, 40px);
       border-radius: 50%;
+      border: var(--adn-loader-thickness, 3px) solid color-mix(in srgb, var(--_color-font) 18%, transparent);
+      border-top-color: var(--_color-accent);
+      animation: adn-loader-spin 0.8s linear infinite;
     }
 
-    .uploader-skel-title {
-      width: min(60%, 260px);
-      height: 1.1em;
-    }
-
-    .uploader-skel-divider {
-      width: 40%;
-      height: 0.7em;
-    }
-
-    .uploader-skel-button {
-      width: 120px;
-      height: 44px;
-      border-radius: 4px;
+    /* Reveal the drop zone with a soft fade after the loader clears. */
+    .uploader-upload-container {
+      animation: adn-fade-in var(--adn-animation-speed, 300ms) ease-in-out;
     }
 
     .sr-only {
@@ -933,13 +946,18 @@ function styles ({
       border-width: 0;
     }
 
-    @keyframes skel-shimmer {
-      from { background-position: 150% 0; }
-      to { background-position: -150% 0; }
+    @keyframes adn-loader-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes adn-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .skel { animation: none; }
+      .uploader-loader { animation-duration: 1.6s; }
+      .uploader-upload-container { animation: none; }
     }
   `
 }

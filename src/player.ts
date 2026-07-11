@@ -26,6 +26,11 @@ import type { ImageColor, Track, TrackVariant, TrackLevels, CoverImage } from '.
 import type { audioEventHandler } from './lib/audio.ts'
 import type { AudioDnNotification } from './components/notification.ts'
 
+// A single slick loader is shown for at most this long while the session loads.
+// It disappears as soon as the session is ready (often sooner), or when this
+// timer elapses — whichever comes first.
+const LOADER_DURATION_MS = 1000
+
 @customElement('audiodn-player')
 export class AudioDnPlayer extends LitElement {
   @property({ type: Object })
@@ -126,6 +131,9 @@ export class AudioDnPlayer extends LitElement {
   isLoading: boolean = true
 
   @state()
+  showLoader: boolean = true
+
+  @state()
   isBuffering: boolean = false
 
   @state()
@@ -135,6 +143,7 @@ export class AudioDnPlayer extends LitElement {
   private _audioMaxRetries = 2
   private _trackCache = new Map<string, import('./lib/session.ts').PlaySessionTrack>()
   private _sessionTimer = new SessionExpiryTimer()
+  private _loaderTimer?: ReturnType<typeof setTimeout>
 
   static styles = styles({ globalReset, globalVariables })
 
@@ -152,6 +161,7 @@ export class AudioDnPlayer extends LitElement {
   private async loadSession () {
     this.isLoading = true
     this.hasError = false
+    this.startLoader()
 
     try {
       this.sessionData = await fetchSession(this as unknown as FetchSession)
@@ -175,12 +185,37 @@ export class AudioDnPlayer extends LitElement {
       })
     } finally {
       this.isLoading = false
+      this.dismissLoader()
     }
+  }
+
+  // Show the loader and arm a max-duration timer. If loading takes longer than
+  // LOADER_DURATION_MS the loader clears anyway and the player renders.
+  private startLoader () {
+    this.showLoader = true
+    if (this._loaderTimer) clearTimeout(this._loaderTimer)
+    this._loaderTimer = setTimeout(() => {
+      this.showLoader = false
+      this._loaderTimer = undefined
+    }, LOADER_DURATION_MS)
+  }
+
+  // Hide the loader immediately (loading finished before the timer elapsed).
+  private dismissLoader () {
+    if (this._loaderTimer) {
+      clearTimeout(this._loaderTimer)
+      this._loaderTimer = undefined
+    }
+    this.showLoader = false
   }
 
   disconnectedCallback () {
     super.disconnectedCallback()
     this._sessionTimer.clear()
+    if (this._loaderTimer) {
+      clearTimeout(this._loaderTimer)
+      this._loaderTimer = undefined
+    }
     document.removeEventListener('adn-volumechange', this)
     document.removeEventListener('adn-playchange', this)
     this.audio.pause()
@@ -645,31 +680,14 @@ function template (this: AudioDnPlayer) {
   return html`
     <audiodn-notification .locale=${this.locale}></audiodn-notification>
 
-    ${this.isLoading ? loadingTemplate.call(this) : mainTemplate.call(this)}
+    ${this.showLoader ? loaderTemplate.call(this) : mainTemplate.call(this)}
   `
 }
 
-function loadingTemplate (this: AudioDnPlayer) {
+function loaderTemplate (this: AudioDnPlayer) {
   return html`
     <div class="player-loading" role="status" aria-label=${t(this.locale, 'player.aria.loading')}>
-      <div class="player-skeleton" aria-hidden="true">
-        <div class="skel-cover skel"></div>
-        <div class="skel-body">
-          <div class="skel-row-info">
-            <div class="skel-play skel"></div>
-            <div class="skel-lines">
-              <div class="skel-line skel-line-title skel"></div>
-              <div class="skel-line skel-line-subtitle skel"></div>
-            </div>
-          </div>
-          <div class="skel-progress skel"></div>
-          <div class="skel-row-controls">
-            <div class="skel-chip skel-chip-time skel"></div>
-            <div class="skel-chip skel-chip-volume skel"></div>
-            <div class="skel-chip skel-chip-settings skel"></div>
-          </div>
-        </div>
-      </div>
+      <span class="player-loader" aria-hidden="true"></span>
       <span class="sr-only">${t(this.locale, 'player.loadingText')}</span>
     </div>
   `
@@ -965,99 +983,41 @@ function styles ({
 
     /* ── Utilities ── */
 
-    /* Skeleton mirrors the loaded layout so there's no jump when data arrives. */
+    /* A single slick spinner sized to the loaded player so there's no layout jump. */
     .player-loading {
-      display: block;
-    }
-
-    .player-skeleton {
-      --_skel-base: var(--adn-skeleton-bg, var(--_bg-light, #2a2a2a));
-      --_skel-highlight: var(--adn-skeleton-highlight, rgba(255, 255, 255, 0.09));
-      display: flex;
-      align-items: stretch;
-    }
-
-    .skel-cover {
-      flex-shrink: 0;
-      width: var(--_coverart-size);
-      height: var(--_coverart-size);
-    }
-
-    .skel-body {
-      flex: 1;
-      min-width: 0;
-      height: var(--_coverart-size);
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      gap: var(--_gap);
-      padding: var(--_gap);
-    }
-
-    .skel-row-info {
       display: flex;
       align-items: center;
-      gap: var(--_gap);
+      justify-content: center;
+      min-height: var(--_coverart-size);
+      background: var(--_bg);
     }
 
-    .skel-play {
-      flex-shrink: 0;
-      width: var(--_playbutton-size);
-      height: var(--_playbutton-size);
+    .player-loader {
+      width: var(--adn-loader-size, 40px);
+      height: var(--adn-loader-size, 40px);
       border-radius: 50%;
+      border: var(--adn-loader-thickness, 3px) solid color-mix(in srgb, var(--_color-font) 18%, transparent);
+      border-top-color: var(--_color-accent);
+      animation: adn-loader-spin 0.8s linear infinite;
     }
 
-    .skel-lines {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+    /* Reveal the loaded player with a soft fade so the loader swap feels smooth. */
+    .player-main {
+      animation: adn-fade-in var(--adn-animation-speed, 300ms) ease-in-out;
     }
 
-    .skel-line {
-      height: 0.75em;
+    @keyframes adn-loader-spin {
+      to { transform: rotate(360deg); }
     }
 
-    .skel-line-title { width: 55%; }
-    .skel-line-subtitle { width: 35%; }
-
-    .skel-progress {
-      flex: 1;
-      min-height: 6px;
-    }
-
-    .skel-row-controls {
-      display: flex;
-      align-items: center;
-      gap: var(--_gap);
-    }
-
-    .skel-chip { height: 10px; }
-    .skel-chip-time { width: 52px; flex-shrink: 0; }
-    .skel-chip-volume { flex: 1; }
-    .skel-chip-settings { width: 18px; flex-shrink: 0; }
-
-    .skel {
-      border-radius: 4px;
-      background-color: var(--_skel-base);
-      background-image: linear-gradient(90deg, transparent 25%, var(--_skel-highlight) 50%, transparent 75%);
-      background-size: 300% 100%;
-      background-repeat: no-repeat;
-      animation: skel-shimmer 1.4s ease-in-out infinite;
-    }
-
-    .skel-cover {
-      border-radius: 0;
-    }
-
-    @keyframes skel-shimmer {
-      from { background-position: 150% 0; }
-      to { background-position: -150% 0; }
+    @keyframes adn-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .skel { animation: none; }
+      .player-loader { animation-duration: 1.6s; }
+      .player-main { animation: none; }
     }
 
     audiodn-notification {
