@@ -1,6 +1,6 @@
 {
   "name": "@audiodn/components",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Custom web components for Audio Delivery Network",
   "type": "module",
   "main": "./dist/index.js",
