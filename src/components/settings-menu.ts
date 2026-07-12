@@ -96,9 +96,14 @@ export class AudioDnSettingsMenu extends LitElement {
   }
 
   updated (changedProperties: Map<string, unknown>) {
-    if (changedProperties.has('isOpen') && this.isOpen) {
-      this.setMaxHeightStyleProperty()
+    if (changedProperties.has('isOpen')) {
+      this.syncPopover()
     }
+  }
+
+  disconnectedCallback () {
+    super.disconnectedCallback()
+    this.removeDismissListeners()
   }
 
   handleEvent (event: Event) {
@@ -139,18 +144,125 @@ export class AudioDnSettingsMenu extends LitElement {
     }
   }
 
-  private setMaxHeightStyleProperty () {
-    if (!this.shadowRoot) return
-
-    const toggle = this.shadowRoot.querySelector('[name=toggle]')
-    if (!toggle) return
-
-    const container = this.closest('.player-body')
-    if (!container) return
-
-    const maxHeight = toggle.getBoundingClientRect().top - container.getBoundingClientRect().top
-    this.style.setProperty('--_max-height', `${maxHeight}px`)
+  // The popover lives in the browser's top layer, so it floats above the player
+  // (and any `overflow: hidden` ancestors) like a normal dropdown menu instead
+  // of being clipped inside the compact player body.
+  private get popoverEl (): PopoverElement | null {
+    return (this.shadowRoot?.querySelector('ul') as PopoverElement | null) ?? null
   }
+
+  private syncPopover () {
+    const ul = this.popoverEl
+    if (!ul) return
+
+    const supported = typeof ul.showPopover === 'function'
+
+    if (this.isOpen) {
+      if (supported) {
+        if (!ul.matches(':popover-open')) {
+          try { ul.showPopover() } catch { /* not connected / already open */ }
+        }
+      } else {
+        ul.setAttribute('data-open', '')
+      }
+      this.positionMenu()
+      this.addDismissListeners()
+    } else {
+      if (supported) {
+        if (ul.matches(':popover-open')) {
+          try { ul.hidePopover() } catch { /* already closed */ }
+        }
+      } else {
+        ul.removeAttribute('data-open')
+      }
+      this.removeDismissListeners()
+    }
+  }
+
+  // Position the popover relative to the cog: open downward when it fits,
+  // otherwise flip upward. Right-aligned to the cog and clamped to the viewport.
+  private positionMenu () {
+    if (typeof window === 'undefined') return
+    const ul = this.popoverEl
+    const toggle = this.shadowRoot?.querySelector<HTMLElement>('[name=toggle]')
+    if (!ul || !toggle || typeof ul.showPopover !== 'function') return
+    if (!ul.matches(':popover-open')) return
+
+    const GAP = 6
+    const MARGIN = 8
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const t = toggle.getBoundingClientRect()
+
+    // If the cog has scrolled out of view, there's nothing to anchor to.
+    if (t.bottom < 0 || t.top > vh) {
+      this.isOpen = false
+      return
+    }
+
+    // Measure the natural size with no height cap so the flip decision is honest.
+    ul.style.maxHeight = ''
+    const menuW = ul.offsetWidth
+    const menuH = ul.offsetHeight
+
+    const spaceBelow = vh - t.bottom - GAP - MARGIN
+    const spaceAbove = t.top - GAP - MARGIN
+
+    let openDown: boolean
+    if (menuH <= spaceBelow) openDown = true
+    else if (menuH <= spaceAbove) openDown = false
+    else openDown = spaceBelow >= spaceAbove
+
+    let top: number
+    let maxH: number
+    if (openDown) {
+      top = t.bottom + GAP
+      maxH = spaceBelow
+    } else {
+      maxH = spaceAbove
+      top = t.top - GAP - Math.min(menuH, maxH)
+    }
+
+    let left = t.right - menuW
+    left = Math.max(MARGIN, Math.min(left, vw - menuW - MARGIN))
+
+    ul.style.position = 'fixed'
+    ul.style.inset = 'auto'
+    ul.style.margin = '0'
+    ul.style.left = `${Math.round(left)}px`
+    ul.style.top = `${Math.round(top)}px`
+    ul.style.maxHeight = `${Math.round(Math.max(0, maxH))}px`
+    ul.dataset.dir = openDown ? 'down' : 'up'
+  }
+
+  private readonly reposition = () => this.positionMenu()
+
+  private readonly onDocumentPointerDown = (event: Event) => {
+    if (!event.composedPath().includes(this)) this.isOpen = false
+  }
+
+  private listening = false
+
+  private addDismissListeners () {
+    if (this.listening || typeof window === 'undefined') return
+    this.listening = true
+    document.addEventListener('pointerdown', this.onDocumentPointerDown, true)
+    window.addEventListener('scroll', this.reposition, { capture: true, passive: true })
+    window.addEventListener('resize', this.reposition)
+  }
+
+  private removeDismissListeners () {
+    if (!this.listening || typeof window === 'undefined') return
+    this.listening = false
+    document.removeEventListener('pointerdown', this.onDocumentPointerDown, true)
+    window.removeEventListener('scroll', this.reposition, true)
+    window.removeEventListener('resize', this.reposition)
+  }
+}
+
+type PopoverElement = HTMLElement & {
+  showPopover?: () => void
+  hidePopover?: () => void
 }
 
 declare global {
@@ -172,7 +284,7 @@ function template (this: AudioDnSettingsMenu): TemplateResult {
       ${iconSetting}
     </button>
 
-    <ul role="menu" ?open=${this.isOpen} @keydown=${(e: KeyboardEvent) => this.handleKeydown(e)}>
+    <ul role="menu" popover="manual" @keydown=${(e: KeyboardEvent) => this.handleKeydown(e)}>
       ${this.variants.map((v: TrackVariant): TemplateResult => {
         if (!this.variant) return html``
         const encoding = `${v.props.codec.toUpperCase()} ${v.props.bitrate}`
@@ -232,31 +344,65 @@ function styles (): CSSResult {
       outline-offset: 2px;
     }
 
+    /* The menu is a top-layer popover (see syncPopover / positionMenu). It is
+       display:none until opened; the UA promotes it to the top layer where it
+       floats above the player instead of being clipped by it. JS sets its
+       fixed left/top/max-height inline. */
     ul {
       list-style: none;
-      padding: 0;
+      padding: var(--adn-settingsmenu-padding-popover);
       margin: 0;
       display: none;
+      overflow-y: auto;
+      min-width: var(--adn-settingsmenu-min-width-popover, 12rem);
+      max-width: calc(100vw - 16px);
+      background: var(--adn-settingsmenu-bg-popover, var(--_bg));
+      border-radius: var(--adn-settingsmenu-radius-popover, var(--adn-radius, 8px));
+      /* Default border + shadow so the popover reads as a distinct floating
+         surface in any theme. The border is derived from the font color, so it
+         stays subtle and visible whether the surface is dark or light (without
+         them, a light-theme popover blends into a light page). */
+      border: var(--adn-settingsmenu-border-popover, 1px solid color-mix(in srgb, var(--_color-font) 20%, transparent));
+      box-shadow: var(--adn-settingsmenu-box-shadow-popover, 0 8px 28px rgba(0, 0, 0, 0.35));
+      opacity: 0;
+      transform: translateY(-6px);
+      transition:
+        opacity 140ms ease,
+        transform 140ms ease,
+        overlay 140ms ease allow-discrete,
+        display 140ms ease allow-discrete;
+    }
+
+    ul[data-dir="up"] {
+      transform: translateY(6px);
+    }
+
+    ul:popover-open {
+      display: grid;
+      opacity: 1;
+      transform: none;
+    }
+
+    @starting-style {
+      ul:popover-open {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+
+      ul[data-dir="up"]:popover-open {
+        transform: translateY(6px);
+      }
+    }
+
+    /* Fallback for browsers without the Popover API: render in-flow above the
+       cog. It may be clipped by the player, but the menu stays functional. */
+    ul[data-open] {
+      display: grid;
       position: absolute;
       right: 0;
-      bottom: 100%;
-      overflow-y: auto;
-      max-height: var(--_max-height);
-      background: var(--adn-settingsmenu-bg-popover, var(--_bg));
-      border-radius: var(--adn-settingsmenu-radius-popover);
-      border: var(--adn-settingsmenu-border-popover);
-      padding: var(--adn-settingsmenu-padding-popover);
-      box-shadow: var(--adn-settingsmenu-box-shadow-popover);
-      transform-origin: bottom right;
-      transform: scaleY(0);
-      opacity: 0;
-      transition: transform 150ms ease-out, opacity 150ms ease-out;
-
-      &[open] {
-        display: grid;
-        transform: scaleY(1);
-        opacity: 1;
-      }
+      bottom: calc(100% + 6px);
+      opacity: 1;
+      transform: none;
     }
 
     li {
@@ -287,7 +433,11 @@ function styles (): CSSResult {
       background: transparent;
       white-space: nowrap;
       font-size: var(--_text-regular);
-      color: var(--adn-settingsmenu-color-item, var(--_color-accent-alt));
+      /* The label sits on the popover's neutral surface, so it must track the
+         theme font color (not --_color-accent-alt, which is the on-accent
+         foreground and can resolve to black/white independently of the
+         surface). The accent is used for the active/hover highlight below. */
+      color: var(--adn-settingsmenu-color-item, var(--_color-font));
       padding: 0;
 
       &:not([disabled]) {
