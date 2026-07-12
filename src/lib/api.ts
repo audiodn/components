@@ -106,6 +106,8 @@ type track = {
   player_title: string
   player_subtitle: string
   player_color: string
+  player_color_light: string | null
+  player_color_dark: string | null
   theme: imageColor[]
   file_name: string
   is_dark: boolean
@@ -177,6 +179,8 @@ export interface UploadSessionData {
   upload_session_id: string
   upload_session: UploadSession
   player_color?: string
+  player_color_light?: string
+  player_color_dark?: string
   expires_at: string
   message?: string
 }

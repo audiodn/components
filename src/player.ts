@@ -9,7 +9,7 @@ import './waveform.ts'
 import './components/tracklist.ts'
 import './components/settings-menu.ts'
 import './components/notification.ts'
-import { globalReset, globalVariables } from './global-css.ts'
+import { globalReset, globalVariables, themePalette } from './global-css.ts'
 
 import { LitElement, html, css, nothing } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
@@ -17,14 +17,17 @@ import { createStorage } from './lib/storage.ts'
 import { fetchSession, SessionExpiryTimer } from './lib/session.ts'
 import { getPlaySessionTrack, ApiError } from './lib/api.ts'
 import { createAudioInstance } from './lib/audio.ts'
+import { isDark as isColorDark, parseHex } from './lib/color.ts'
 import { t, type Locale } from './lib/i18n.ts'
 
 import type { CSSResult } from 'lit'
 import type { SessionData, PlaySession, PlaySessionTrack, FetchSession } from './lib/session.ts'
 import type { BrowserStorage, storage } from './lib/storage.ts'
-import type { ImageColor, Track, TrackVariant, TrackLevels, CoverImage } from './lib/track.ts'
+import type { Track, TrackVariant, TrackLevels, CoverImage } from './lib/track.ts'
 import type { audioEventHandler } from './lib/audio.ts'
 import type { AudioDnNotification } from './components/notification.ts'
+
+export type Theme = 'auto' | 'dark' | 'light'
 
 // A single slick loader is shown for at most this long while the session loads.
 // It disappears as soon as the session is ready (often sooner), or when this
@@ -53,6 +56,9 @@ export class AudioDnPlayer extends LitElement {
 
   @property({ type: String, attribute: 'size', reflect: true })
   size: string = 'large'
+
+  @property({ type: String, attribute: 'theme', reflect: true })
+  theme: Theme = 'auto'
 
   @property({ type: String, attribute: 'locale', reflect: true })
   locale: Locale = 'en'
@@ -154,11 +160,22 @@ export class AudioDnPlayer extends LitElement {
   private _trackCache = new Map<string, import('./lib/session.ts').PlaySessionTrack>()
   private _sessionTimer = new SessionExpiryTimer()
   private _loaderTimer?: ReturnType<typeof setTimeout>
+  private _schemeQuery?: MediaQueryList
+  private _onSchemeChange = () => {
+    // Only the `auto` theme tracks the OS setting; re-apply the accent so it
+    // uses the correct light/dark variant for the newly-preferred scheme.
+    if (this.theme === 'auto') this.applyAccent()
+  }
 
   static styles = styles({ globalReset, globalVariables })
 
   async connectedCallback (this: AudioDnPlayer) {
     super.connectedCallback()
+
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      this._schemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      this._schemeQuery.addEventListener('change', this._onSchemeChange)
+    }
 
     await this.loadSession()
 
@@ -166,6 +183,22 @@ export class AudioDnPlayer extends LitElement {
     this.audio.volume = this.volume
     document.addEventListener('adn-volumechange', this)
     document.addEventListener('adn-playchange', this)
+  }
+
+  protected updated (changedProperties: Map<string, unknown>) {
+    // When the theme attribute changes, re-resolve the accent to the matching
+    // light/dark variant for the active track.
+    if (changedProperties.has('theme') && this.activeTrack) {
+      this.applyAccent()
+    }
+  }
+
+  private getEffectiveTheme (): 'light' | 'dark' {
+    if (this.theme === 'light' || this.theme === 'dark') return this.theme
+    // Fall back to `dark` when the OS preference can't be read (e.g. SSR, older
+    // environments); this matches the base CSS palette.
+    if (!this._schemeQuery) return 'dark'
+    return this._schemeQuery.matches ? 'dark' : 'light'
   }
 
   private async loadSession () {
@@ -227,6 +260,8 @@ export class AudioDnPlayer extends LitElement {
   disconnectedCallback () {
     super.disconnectedCallback()
     this._sessionTimer.clear()
+    this._schemeQuery?.removeEventListener('change', this._onSchemeChange)
+    this._schemeQuery = undefined
     if (this._loaderTimer) {
       clearTimeout(this._loaderTimer)
       this._loaderTimer = undefined
@@ -368,27 +403,43 @@ export class AudioDnPlayer extends LitElement {
     this.playSession = this.sessionData.playSession
     this.activeTrack = track
     this.activeLevels = results.levels
-    this.activeColor = track.playerColor
-    this.activeColorIsDark = track.isDark
     this.activeCoverImage = results.coverImage
     this.activeTrackVariants = this.sortVariants(results.variants || [])
 
-    const playerColor: ImageColor | undefined = track.theme?.find(entry => entry.hex === track.playerColor)
-
-    if (playerColor) {
-      this.style.setProperty('--_color-accent-rgb', `var(--adn-color-accent-rgb, ${playerColor.red}, ${playerColor.green}, ${playerColor.blue})`)
-    }
-
-    this.style.setProperty('--_color-accent', `var(--adn-color-accent, ${this.activeColor})`)
-    this.style.setProperty('--_color-accent-alt', track.isDark
-      ? 'var(--adn-color-accent-alt, var(--adn-color-accent-dark, var(--_color-accent-dark)))'
-      : 'var(--adn-color-accent-alt, var(--adn-color-accent-light, var(--_color-accent-light)))'
-    )
+    this.applyAccent()
 
     const variant = this.findVariant(this.activeTrackVariants)
     if (!variant) return
 
     this.selectVariant(variant)
+  }
+
+  // Resolve the accent for the active track using the theme-aware color
+  // variant: `playerColorDark` on a dark background, `playerColorLight` on a
+  // light one (falling back to the base `playerColor`). The foreground drawn on
+  // the accent (`--_color-accent-alt`, e.g. the play button icon) is chosen from
+  // the luminance of the resolved accent so it always reads.
+  private applyAccent () {
+    const track = this.activeTrack
+    if (!track) return
+
+    const effectiveTheme = this.getEffectiveTheme()
+    const variant = effectiveTheme === 'light' ? track.playerColorLight : track.playerColorDark
+    const accent = variant || track.playerColor
+
+    this.activeColor = accent
+    this.activeColorIsDark = isColorDark(accent)
+
+    const rgb = parseHex(accent)
+    if (rgb) {
+      this.style.setProperty('--_color-accent-rgb', `var(--adn-color-accent-rgb, ${rgb.r}, ${rgb.g}, ${rgb.b})`)
+    }
+
+    this.style.setProperty('--_color-accent', `var(--adn-color-accent, ${accent})`)
+    this.style.setProperty('--_color-accent-alt', this.activeColorIsDark
+      ? 'var(--adn-color-accent-alt, var(--adn-color-accent-dark, var(--_color-accent-dark)))'
+      : 'var(--adn-color-accent-alt, var(--adn-color-accent-light, var(--_color-accent-light)))'
+    )
   }
 
   private prefetchAdjacentTracks (currentTrack: Track) {
@@ -771,6 +822,7 @@ function styles ({
 }) {
   return css`
     ${globalReset}
+    ${themePalette}
 
     :host {
       ${globalVariables}

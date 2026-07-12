@@ -218,8 +218,27 @@ import '@audiodn/components/waveform'
 
 ## Theming
 
-Both the player and uploader are themable via `--adn-*` CSS custom properties
-set on the element (or an ancestor). Common ones:
+Both the player and uploader ship a light and dark palette, selected with the
+`theme` attribute:
+
+```html
+<audiodn-player theme="auto" ...></audiodn-player>   <!-- default -->
+<audiodn-player theme="dark" ...></audiodn-player>
+<audiodn-player theme="light" ...></audiodn-player>
+```
+
+- `auto` (default) follows the visitor's `prefers-color-scheme` and switches
+  live when the OS/browser setting changes.
+- `dark` is white text on a dark background; `light` is dark text on a soft
+  light-gray background.
+- The accent stays legible in both: the player uses the contrast-safe
+  `player_color_dark` / `player_color_light` variant for the active theme, and
+  the uploader tints its `accent-color` (only when needed) to clear a minimum
+  contrast against the background.
+
+For finer control, both components are also themable via `--adn-*` CSS custom
+properties set on the element (or an ancestor), which override the palette.
+Common ones:
 
 ```css
 audiodn-player,

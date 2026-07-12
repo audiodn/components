@@ -3,11 +3,14 @@ import { customElement, property, state } from 'lit/decorators.js'
 import { createUploadSession, getUploadSession, getTrackUploadUrl, type UploadSessionData } from './lib/api.ts'
 import { SessionExpiryTimer } from './lib/session.ts'
 import { iconCloudUpload, iconAlert } from './lib/constants.ts'
-import { globalReset, globalVariables } from './global-css.ts'
+import { globalReset, globalVariables, themePalette } from './global-css.ts'
+import { accentForTheme, isDark as isColorDark, parseHex } from './lib/color.ts'
 import { t, type Locale } from './lib/i18n.ts'
 import './components/notification.ts'
 import type { CSSResult } from 'lit'
 import type { AudioDnNotification } from './components/notification.ts'
+
+export type Theme = 'auto' | 'dark' | 'light'
 
 interface UploadingFile extends File {
   uploadProgress?: number;
@@ -46,6 +49,9 @@ export class AudiodnUploader extends LitElement {
   @property({ type: String, attribute: 'accent-color' })
   accentColor: string = '#fe008a'
 
+  @property({ type: String, attribute: 'theme', reflect: true })
+  theme: Theme = 'auto'
+
   @property({ type: String, attribute: 'locale', reflect: true })
   locale: Locale = 'en'
 
@@ -74,6 +80,12 @@ export class AudiodnUploader extends LitElement {
   private _removeTimeouts: ReturnType<typeof setTimeout>[] = []
   private _sessionTimer = new SessionExpiryTimer()
   private _loaderTimer?: ReturnType<typeof setTimeout>
+  private _schemeQuery?: MediaQueryList
+  private _onSchemeChange = () => {
+    // Only the `auto` theme tracks the OS setting; re-tint the accent so it
+    // keeps enough contrast against the newly-preferred background.
+    if (this.theme === 'auto') this.applyAccent()
+  }
 
   static styles = styles({ globalReset, globalVariables })
 
@@ -81,24 +93,51 @@ export class AudiodnUploader extends LitElement {
     return template.call(this)
   }
 
-  private updateAccentColor () {
-    this.style.setProperty('--_color-accent', this.accentColor)
-    const match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(this.accentColor)
-    if (match) {
-      this.style.setProperty('--_color-accent-rgb', `${parseInt(match[1]!, 16)}, ${parseInt(match[2]!, 16)}, ${parseInt(match[3]!, 16)}`)
+  private getEffectiveTheme (): 'light' | 'dark' {
+    if (this.theme === 'light' || this.theme === 'dark') return this.theme
+    // Fall back to `dark` when the OS preference can't be read (e.g. SSR, older
+    // environments); this matches the base CSS palette.
+    if (!this._schemeQuery) return 'dark'
+    return this._schemeQuery.matches ? 'dark' : 'light'
+  }
+
+  // Tint the configured accent (only as much as needed) so it clears a minimum
+  // contrast ratio against the active theme's background, then set the accent
+  // and its foreground (`--_color-accent-alt`, e.g. the browse-button label).
+  private applyAccent () {
+    const effectiveTheme = this.getEffectiveTheme()
+    const accent = accentForTheme(this.accentColor, effectiveTheme) || this.accentColor
+
+    this.style.setProperty('--_color-accent', accent)
+
+    const rgb = parseHex(accent)
+    if (rgb) {
+      this.style.setProperty('--_color-accent-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`)
     }
+
+    this.style.setProperty(
+      '--_color-accent-alt',
+      `var(--adn-color-accent-alt, ${isColorDark(accent) ? '#fff' : '#1c1c1e'})`
+    )
   }
 
   updated (changedProperties: Map<string, unknown>) {
-    if (changedProperties.has('accentColor') && changedProperties.get('accentColor') !== undefined) {
-      this.updateAccentColor()
+    if (
+      (changedProperties.has('accentColor') && changedProperties.get('accentColor') !== undefined) ||
+      changedProperties.has('theme')
+    ) {
+      this.applyAccent()
     }
   }
 
   async connectedCallback () {
     super.connectedCallback()
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      this._schemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      this._schemeQuery.addEventListener('change', this._onSchemeChange)
+    }
     if (this.hasAttribute('accent-color')) {
-      this.updateAccentColor()
+      this.applyAccent()
     }
     await this.loadSession()
   }
@@ -106,6 +145,8 @@ export class AudiodnUploader extends LitElement {
   disconnectedCallback () {
     super.disconnectedCallback()
     this._sessionTimer.clear()
+    this._schemeQuery?.removeEventListener('change', this._onSchemeChange)
+    this._schemeQuery = undefined
     if (this._loaderTimer) {
       clearTimeout(this._loaderTimer)
       this._loaderTimer = undefined
@@ -200,7 +241,7 @@ export class AudiodnUploader extends LitElement {
       const hasThemeOverride = getComputedStyle(this).getPropertyValue('--adn-color-accent').trim()
       if (this.sessionData.player_color && !this.hasAttribute('accent-color') && !hasThemeOverride) {
         this.accentColor = this.sessionData.player_color
-        this.updateAccentColor()
+        this.applyAccent()
       }
     } catch (err) {
       this.error = err instanceof Error ? err.message : 'Failed to initialize upload session: Unknown error occurred'
@@ -607,6 +648,7 @@ function styles ({
 }) {
   return css`
     ${globalReset}
+    ${themePalette}
 
     :host {
       ${globalVariables}
@@ -617,6 +659,7 @@ function styles ({
       --_color-font-muted: var(--adn-color-font-muted, #bbb);
       --_color-accent: var(--adn-color-accent, #fe008a);
       --_color-accent-rgb: var(--adn-color-accent-rgb, 254, 0, 138);
+      --_color-accent-alt: var(--adn-color-accent-alt, #fff);
       --_color-error: var(--adn-color-error, #dc2626);
       --_color-error-light: var(--adn-color-error-light, #fca5a5);
       --_color-highlight: var(--adn-color-highlight, rgba(255, 255, 255, 0.1));
@@ -743,7 +786,7 @@ function styles ({
 
     .uploader-browse-button {
       background: var(--_color-accent);
-      color: var(--adn-color-accent-alt, #fff);
+      color: var(--_color-accent-alt);
       border: none;
       padding: var(--space-xs) var(--space-s);
       border-radius: 4px;

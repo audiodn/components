@@ -62,6 +62,32 @@ export const globalVariables = css`
   /* --adn-volume-width: clamp(3.125rem, -0.4464rem + 17.8571vw, 6.25rem); */
 `
 
+// Light-mode overrides for the shared `--_*` design tokens. The base dark
+// values live in each component's `:host` block, so this only needs to flip the
+// palette for the light theme (explicit `theme="light"`) and for `theme="auto"`
+// when the visitor's OS/browser prefers a light color scheme.
+export const themePalette = css`
+  :host([theme="light"]) {
+    --_bg: var(--adn-bg, #f4f4f5);
+    --_bg-light: var(--adn-bg-light, #e4e4e7);
+    --_color-font: var(--adn-color-font, #1c1c1e);
+    --_color-font-muted: var(--adn-color-font-muted, #52525b);
+    --_border-color: var(--adn-border-color, #d4d4d8);
+    --_color-highlight: var(--adn-color-highlight, rgba(0, 0, 0, 0.06));
+  }
+
+  @media (prefers-color-scheme: light) {
+    :host([theme="auto"]) {
+      --_bg: var(--adn-bg, #f4f4f5);
+      --_bg-light: var(--adn-bg-light, #e4e4e7);
+      --_color-font: var(--adn-color-font, #1c1c1e);
+      --_color-font-muted: var(--adn-color-font-muted, #52525b);
+      --_border-color: var(--adn-border-color, #d4d4d8);
+      --_color-highlight: var(--adn-color-highlight, rgba(0, 0, 0, 0.06));
+    }
+  }
+`
+
 export const globalReset = css`
   *, *:before, *:after {
     box-sizing: border-box;

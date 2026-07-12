@@ -12,6 +12,8 @@ export interface Track {
   playerTitle: string
   playerSubtitle: string
   playerColor: string
+  playerColorLight: string | null
+  playerColorDark: string | null
   fileName: string
   isDark: boolean
   theme: ImageColor[]
