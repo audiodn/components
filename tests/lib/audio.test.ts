@@ -10,6 +10,7 @@ describe('createAudioInstance', () => {
     vi.clearAllMocks()
 
     mockAudio = {
+      preload: '',
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
       play: vi.fn(),
@@ -97,6 +98,11 @@ describe('createAudioInstance', () => {
     expect(audio).toHaveProperty('error')
     expect(audio).toHaveProperty('src')
     expect(audio).toHaveProperty('currentSrc')
+  })
+
+  it('should set preload to none so audio is not fetched until play', () => {
+    createAudioInstance(eventHandler)
+    expect(mockAudio.preload).toBe('none')
   })
 
   it('should handle the event handler function correctly', () => {

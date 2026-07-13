@@ -1,9 +1,12 @@
 /**
  * Thin factory around the native HTMLAudioElement.
  *
- * `createAudioInstance` returns a fresh `Audio()` with `preload = 'auto'` and
+ * `createAudioInstance` returns a fresh `Audio()` with `preload = 'none'` and
  * wires every native media event (canplay, timeupdate, ended, error, etc.) to a
  * single handler, so the host player component can react to playback state.
+ *
+ * The player assigns `src` only when the user presses play (or when autoplay
+ * is explicitly requested), so mounting the component never downloads audio.
  *
  * Only one audio element should play at a time across all player instances on
  * the page. That coordination lives in the player: an element reports when it
@@ -17,7 +20,7 @@ export interface audioEventHandler {
 
 export function createAudioInstance (eventHandler: audioEventHandler): HTMLAudioElement {
   const el = new Audio()
-  el.preload = 'auto'
+  el.preload = 'none'
 
   for (const key in el) {
     if (/^on/.test(key)) {

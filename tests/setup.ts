@@ -64,23 +64,39 @@ Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
 
 // Mock Audio API for tests
 Object.defineProperty(window, 'Audio', {
-  value: vi.fn().mockImplementation(() => ({
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    play: vi.fn(),
-    pause: vi.fn(),
-    load: vi.fn(),
-    currentTime: 0,
-    duration: 0,
-    volume: 1,
-    muted: false,
-    paused: true,
-    ended: false,
-    readyState: 0,
-    networkState: 0,
-    error: null,
-    src: '',
-    currentSrc: ''
-  })),
+  value: vi.fn().mockImplementation(() => {
+    const el = {
+      _src: '',
+      preload: '',
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      play: vi.fn(),
+      pause: vi.fn(),
+      load: vi.fn(),
+      getAttribute: vi.fn(function (this: { _src: string }, name: string) {
+        if (name === 'src') return this._src || null
+        return null
+      }),
+      removeAttribute: vi.fn(function (this: { _src: string }, name: string) {
+        if (name === 'src') this._src = ''
+      }),
+      currentTime: 0,
+      duration: 0,
+      volume: 1,
+      muted: false,
+      paused: true,
+      ended: false,
+      readyState: 0,
+      networkState: 0,
+      error: null,
+      currentSrc: '',
+    }
+    Object.defineProperty(el, 'src', {
+      get () { return el._src },
+      set (value: string) { el._src = value },
+      configurable: true,
+    })
+    return el
+  }),
   writable: true
 })

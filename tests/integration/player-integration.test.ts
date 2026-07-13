@@ -89,25 +89,36 @@ vi.mock('../../src/lib/storage', () => ({
 }))
 
 vi.mock('../../src/lib/audio', () => ({
-  createAudioInstance: vi.fn(() => ({
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    play: vi.fn(),
-    pause: vi.fn(),
-    load: vi.fn(),
-    currentTime: 0,
-    duration: 0,
-    volume: 1,
-    muted: false,
-    paused: true,
-    ended: false,
-    readyState: 0,
-    networkState: 0,
-    error: null,
-    src: '',
-    currentSrc: '',
-    autoplay: false,
-  })),
+  createAudioInstance: vi.fn(() => {
+    const el = {
+      _src: '',
+      preload: '',
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      play: vi.fn(),
+      pause: vi.fn(),
+      load: vi.fn(),
+      getAttribute: vi.fn((name: string) => (name === 'src' ? el._src || null : null)),
+      removeAttribute: vi.fn((name: string) => { if (name === 'src') el._src = '' }),
+      currentTime: 0,
+      duration: 120,
+      volume: 1,
+      muted: false,
+      paused: true,
+      ended: false,
+      readyState: 0,
+      networkState: 0,
+      error: null,
+      currentSrc: '',
+      autoplay: false,
+    }
+    Object.defineProperty(el, 'src', {
+      get () { return el._src },
+      set (value: string) { el._src = value },
+      configurable: true,
+    })
+    return el
+  }),
 }))
 
 describe('Player Integration Tests', () => {
@@ -115,7 +126,7 @@ describe('Player Integration Tests', () => {
 
   beforeEach(async () => {
     mockFetchSession.mockResolvedValue(structuredClone(mockSessionData))
-    element = await fixture(html`<audiodn-player></audiodn-player>`) as unknown as AudioDnPlayer
+    element = await fixture(html`<audiodn-player variants="hq"></audiodn-player>`) as unknown as AudioDnPlayer
     await element.updateComplete
   })
 

@@ -151,25 +151,36 @@ vi.mock('../src/lib/storage', () => ({
 }))
 
 vi.mock('../src/lib/audio', () => ({
-  createAudioInstance: vi.fn(() => ({
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    play: vi.fn(),
-    pause: vi.fn(),
-    load: vi.fn(),
-    currentTime: 0,
-    duration: 0,
-    volume: 1,
-    muted: false,
-    paused: true,
-    ended: false,
-    readyState: 0,
-    networkState: 0,
-    error: null,
-    src: '',
-    currentSrc: '',
-    autoplay: false,
-  })),
+  createAudioInstance: vi.fn(() => {
+    const el = {
+      _src: '',
+      preload: '',
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      play: vi.fn(),
+      pause: vi.fn(),
+      load: vi.fn(),
+      getAttribute: vi.fn((name: string) => (name === 'src' ? el._src || null : null)),
+      removeAttribute: vi.fn((name: string) => { if (name === 'src') el._src = '' }),
+      currentTime: 0,
+      duration: 180,
+      volume: 1,
+      muted: false,
+      paused: true,
+      ended: false,
+      readyState: 0,
+      networkState: 0,
+      error: null,
+      currentSrc: '',
+      autoplay: false,
+    }
+    Object.defineProperty(el, 'src', {
+      get () { return el._src },
+      set (value: string) { el._src = value },
+      configurable: true,
+    })
+    return el
+  }),
 }))
 
 describe('AudioDnPlayer', () => {
@@ -190,7 +201,8 @@ describe('AudioDnPlayer', () => {
     mockFetchSession.mockResolvedValue(structuredClone(mockSessionData))
     mockGetPlaySessionTrack.mockResolvedValue(structuredClone(mockTrackResult))
     const el = document.createElement('audiodn-player')
-    for (const [k, v] of Object.entries(attrs)) {
+    const merged = { variants: 'hq,lq', ...attrs }
+    for (const [k, v] of Object.entries(merged)) {
       el.setAttribute(k, v)
     }
     element = await fixture(el) as unknown as AudioDnPlayer
@@ -240,10 +252,11 @@ describe('AudioDnPlayer', () => {
       expect(element.audio.autoplay).toBe(false)
     })
 
-    it('arms the audio element to play the first track when autoplay is set', async () => {
+    it('starts playback for the first track when autoplay is set', async () => {
       await createPlayer({ autoplay: '' })
       expect(element.autoplay).toBe(true)
-      expect(element.audio.autoplay).toBe(true)
+      expect(element.audio.play).toHaveBeenCalled()
+      expect(element.audio.src).toBe(element.activeVariant?.url)
     })
   })
 
@@ -359,6 +372,14 @@ describe('AudioDnPlayer', () => {
     it('should set isLoading to false after session loads', async () => {
       await createPlayer()
       expect(element.isLoading).toBe(false)
+    })
+
+    it('should not assign audio src until play is requested', async () => {
+      await createPlayer()
+      expect(element.activeVariant?.url).toBeTruthy()
+      expect(element.audio.src).toBe('')
+      element.handleUIPlayPause()
+      expect(element.audio.src).toBe(element.activeVariant?.url)
     })
 
     it('should handle session fetch failure gracefully', async () => {

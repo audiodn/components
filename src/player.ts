@@ -212,17 +212,14 @@ export class AudioDnPlayer extends LitElement {
       this.scheduleSessionExpiry()
 
       if (this.tracks[0]) {
-        // When autoplay is set, arm the audio element so the first track starts
-        // as soon as it can play. Browser autoplay policies may still block
-        // playback until the user interacts with the page.
-        if (this.autoplay) this.audio.autoplay = true
-
         if (this.sessionData.firstTrack) {
           this._trackCache.set(this.tracks[0].id, this.sessionData.firstTrack)
           this.applyTrackData(this.tracks[0], this.sessionData.firstTrack)
           this.prefetchAdjacentTracks(this.tracks[0])
+          if (this.autoplay) this.startPlayback()
         } else {
-          this.selectTrack(this.tracks[0])
+          await this.selectTrack(this.tracks[0])
+          if (this.autoplay) this.startPlayback()
         }
       }
     } catch (err) {
@@ -472,7 +469,7 @@ export class AudioDnPlayer extends LitElement {
     return order
   }
 
-  selectVariant (variant: TrackVariant) {
+  selectVariant (variant: TrackVariant, options?: { loadAudio?: boolean }) {
     if (!this.activeTrack) return
 
     if (variant.isPreview) {
@@ -487,11 +484,39 @@ export class AudioDnPlayer extends LitElement {
       this.progressMaximum = 1
     }
 
+    const previousUrl = this.activeVariant?.url
     this.activeVariant = variant
     this.currentTime = this.calculateCurrentTime(0, true)
     this._audioRetryCount = 0
     this.hasError = false
-    this.audio.src = variant.url
+
+    // Signed URLs are prepared at session load; only assign `src` (which starts
+    // the GET) when playback is requested — or when a caller explicitly opts in
+    // (autoplay, track switch while playing, retry).
+    if (previousUrl && previousUrl !== variant.url) this.clearAudioSource()
+    if (options?.loadAudio) this.ensureAudioSource()
+  }
+
+  private clearAudioSource () {
+    this.audio.pause()
+    this.audio.removeAttribute('src')
+    this.audio.load()
+  }
+
+  private ensureAudioSource (): boolean {
+    if (!this.activeVariant?.url) return false
+    if (this.audio.getAttribute('src') !== this.activeVariant.url) {
+      this.audio.src = this.activeVariant.url
+    }
+    return true
+  }
+
+  private startPlayback () {
+    if (!this.ensureAudioSource()) return
+    const result = this.audio.play()
+    if (result && typeof result.catch === 'function') {
+      result.catch((err: unknown) => console.error('Playback failed:', err))
+    }
   }
 
   findVariant (variants: TrackVariant[], idx?: string) {
@@ -526,15 +551,16 @@ export class AudioDnPlayer extends LitElement {
     if (this.state === 'playing') {
       this.audio.pause()
     } else {
-      this.audio.play()
+      this.startPlayback()
     }
   }
 
   retryAudio (): void {
     if (!this.activeVariant) {
       if (this.tracks[0]) {
-        this.audio.autoplay = true
         this.selectTrack(this.tracks[0])
+          .then(() => this.startPlayback())
+          .catch((err: unknown) => console.error('Track load failed:', err))
       }
       return
     }
@@ -542,9 +568,10 @@ export class AudioDnPlayer extends LitElement {
     this.hasError = false
     this._audioRetryCount = 0
     this.isBuffering = true
-    this.audio.autoplay = true
-    this.audio.src = this.activeVariant.url
+    this.clearAudioSource()
+    this.ensureAudioSource()
     this.audio.load()
+    this.startPlayback()
   }
 
   handleUISelectTrack (event: CustomEvent): void {
@@ -556,8 +583,9 @@ export class AudioDnPlayer extends LitElement {
 
     this.hasError = false
     this.isBuffering = true
-    this.audio.autoplay = true
     this.selectTrack(track)
+      .then(() => this.startPlayback())
+      .catch((err: unknown) => console.error('Track load failed:', err))
   }
 
   handleUISeek (event: CustomEvent): void {
@@ -567,9 +595,11 @@ export class AudioDnPlayer extends LitElement {
     const newTime = Math.round(percent * this.activeTrack.duration)
     const nextTime = this.calculateCurrentTime(newTime, false)
 
+    if (!this.ensureAudioSource()) return
+
     this.audio.currentTime = nextTime
     this.currentTime = newTime
-    this.audio.play()
+    this.startPlayback()
   }
 
   handleUISelectVariant (event: CustomEvent): void {
@@ -579,7 +609,9 @@ export class AudioDnPlayer extends LitElement {
     const variant = this.findVariant(this.activeTrackVariants, index)
     if (!variant) return
 
-    this.selectVariant(variant)
+    const wasPlaying = this.state === 'playing'
+    this.selectVariant(variant, { loadAudio: wasPlaying })
+    if (wasPlaying) this.startPlayback()
   }
 
   // The cog attempts the download and, if the server (key-derived session) says
@@ -695,7 +727,8 @@ export class AudioDnPlayer extends LitElement {
           const delay = 1000 * Math.pow(2, this._audioRetryCount - 1)
           setTimeout(() => {
             if (this.activeVariant) {
-              this.audio.src = this.activeVariant.url
+              this.clearAudioSource()
+              this.ensureAudioSource()
               this.audio.load()
             }
           }, delay)
