@@ -396,7 +396,7 @@ export class AudioDnWaveform extends LitElement {
 
       const segmentWidth = cssWidth / lineData.length
       for (const [i, entry] of lineData.entries()) {
-        if (!entry) return
+        if (!entry) continue
 
         const x = i * lineSpace + Math.ceil(lineWidth / 2) + 0.5
         let lineHeight = entry * (centerY - this.lineWidth * 2)

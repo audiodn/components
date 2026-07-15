@@ -121,6 +121,11 @@ All events bubble and are composed (cross shadow DOM).
 A drag-and-drop uploader that opens an upload session and PUTs audio files
 directly to storage with per-file and overall progress.
 
+The `file-uploaded` event means the bytes were accepted by storage for that
+track — not that AudioDN has finished processing. Poll
+`GET /v1/track/:track_id` until `track_status_id` is `ready` (or wait for a
+track webhook) before playing the track.
+
 ```javascript
 import '@audiodn/components/uploader'
 ```
@@ -135,7 +140,8 @@ import '@audiodn/components/uploader'
 
 You must provide **either** `api-key` (the uploader creates the session) **or**
 `upload-session-id` (you created the session server-side). Only `audio/*` files
-are accepted; multiple files are allowed.
+are accepted. Use `limit` to cap how many files may be uploaded while the
+component is mounted (omit or `0` for unlimited; a page refresh resets the count).
 
 ### Attributes
 
@@ -147,6 +153,7 @@ are accepted; multiple files are allowed.
 | `accent-color` | string | `#fe008a` | Accent color for the UI. Must be a 6-digit hex color, e.g. `#ff00ff`. Falls back to the collection's color when not set. |
 | `locale` | string | `en` | UI language. Values: `en`, `fr`, `es`, `de`. |
 | `disabled` | boolean | `false` | Disables the drop zone and file picker. Presence of the attribute = `true`. |
+| `limit` | number | `0` | Max files that may be uploaded for this component instance. `0` / unset = unlimited. Counts accepted files for the lifetime of the element (even after they leave the queue). `1` forces single-file picker mode. |
 
 ### Events
 
@@ -155,7 +162,7 @@ All events bubble and are composed.
 | Event | `detail` | Fired when |
 |-------|----------|------------|
 | `files-selected` | `{ files }` | Audio files are chosen or dropped. |
-| `file-uploaded` | `{ file, trackId }` | A file finishes uploading. |
+| `file-uploaded` | `{ file, trackId }` | Bytes finished uploading to storage. Does **not** mean the track is `ready` — wait for processing before playback. |
 | `session-error` | `{ error }` | The upload session could not be created or fetched. |
 | `adn-session-refreshed` | `{ uploadSessionId }` | The session was auto-refreshed (only when `api-key` is set). |
 | `adn-session-expired` | `{ uploadSessionId }` | The session expired and could not be refreshed. |

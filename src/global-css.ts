@@ -74,6 +74,9 @@ export const themePalette = css`
     --_color-font-muted: var(--adn-color-font-muted, #52525b);
     --_border-color: var(--adn-border-color, #d4d4d8);
     --_color-highlight: var(--adn-color-highlight, rgba(0, 0, 0, 0.06));
+    /* Darker greyscale accent so controls read on the light background. */
+    --_color-accent: var(--adn-color-accent, #52525b);
+    --_color-accent-rgb: var(--adn-color-accent-rgb, 82, 82, 91);
   }
 
   @media (prefers-color-scheme: light) {
@@ -84,6 +87,8 @@ export const themePalette = css`
       --_color-font-muted: var(--adn-color-font-muted, #52525b);
       --_border-color: var(--adn-border-color, #d4d4d8);
       --_color-highlight: var(--adn-color-highlight, rgba(0, 0, 0, 0.06));
+      --_color-accent: var(--adn-color-accent, #52525b);
+      --_color-accent-rgb: var(--adn-color-accent-rgb, 82, 82, 91);
     }
   }
 `

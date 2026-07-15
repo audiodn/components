@@ -44,6 +44,7 @@ export type MessageKey =
   | 'uploader.notify.networkError'
   | 'uploader.notify.uploadFailedDetail'
   | 'uploader.notify.noAudioFiles'
+  | 'uploader.notify.limitExceeded'
   | 'uploader.error.tryAgain'
   | 'uploader.aria.loading'
   | 'uploader.loadingText'
@@ -99,6 +100,7 @@ const en: Messages = {
   'uploader.notify.networkError': '{filename}: network error',
   'uploader.notify.uploadFailedDetail': '{filename}: {error}',
   'uploader.notify.noAudioFiles': 'No audio files detected. Please select audio files.',
+  'uploader.notify.limitExceeded': 'You can upload at most {limit} file(s).',
   'uploader.error.tryAgain': 'Try again',
   'uploader.aria.loading': 'Loading uploader',
   'uploader.loadingText': 'Loading…',
@@ -153,6 +155,7 @@ const fr: Messages = {
   'uploader.notify.networkError': '{filename} : erreur réseau',
   'uploader.notify.uploadFailedDetail': '{filename} : {error}',
   'uploader.notify.noAudioFiles': 'Aucun fichier audio détecté. Veuillez sélectionner des fichiers audio.',
+  'uploader.notify.limitExceeded': 'Vous ne pouvez téléverser que {limit} fichier(s).',
   'uploader.error.tryAgain': 'Réessayer',
   'uploader.aria.loading': 'Chargement du téléverseur',
   'uploader.loadingText': 'Chargement…',
@@ -207,6 +210,7 @@ const es: Messages = {
   'uploader.notify.networkError': '{filename}: error de red',
   'uploader.notify.uploadFailedDetail': '{filename}: {error}',
   'uploader.notify.noAudioFiles': 'No se detectaron archivos de audio. Selecciona archivos de audio.',
+  'uploader.notify.limitExceeded': 'Solo puedes subir {limit} archivo(s).',
   'uploader.error.tryAgain': 'Intentar de nuevo',
   'uploader.aria.loading': 'Cargando el cargador',
   'uploader.loadingText': 'Cargando…',
@@ -261,6 +265,7 @@ const de: Messages = {
   'uploader.notify.networkError': '{filename}: Netzwerkfehler',
   'uploader.notify.uploadFailedDetail': '{filename}: {error}',
   'uploader.notify.noAudioFiles': 'Keine Audiodateien erkannt. Bitte wählen Sie Audiodateien aus.',
+  'uploader.notify.limitExceeded': 'Sie können höchstens {limit} Datei(en) hochladen.',
   'uploader.error.tryAgain': 'Erneut versuchen',
   'uploader.aria.loading': 'Uploader wird geladen',
   'uploader.loadingText': 'Wird geladen…',

@@ -243,6 +243,15 @@ describe('AudioDnPlayer', () => {
       expect(element.variants).toBe('hq,lq')
       expect(element.size).toBe('small')
     })
+
+    it('does not reflect api-key onto the DOM attribute after property set', async () => {
+      await createPlayerWithoutSession()
+      element.removeAttribute('api-key')
+      element.apiKey = 'secret-key-should-not-reflect'
+      await element.updateComplete
+      expect(element.getAttribute('api-key')).toBeNull()
+      expect(element.apiKey).toBe('secret-key-should-not-reflect')
+    })
   })
 
   describe('Autoplay', () => {

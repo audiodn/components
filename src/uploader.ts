@@ -58,6 +58,15 @@ export class AudiodnUploader extends LitElement {
   @property({ type: Boolean, attribute: 'disabled' })
   disabled: boolean = false
 
+  /**
+   * Max number of files that may be uploaded while this component instance
+   * is mounted. `0` / unset = unlimited. Counts every file accepted into the
+   * queue for the lifetime of the element (completed uploads still count after
+   * they leave the UI). Refreshing the page resets the counter.
+   */
+  @property({ type: Number, attribute: 'limit' })
+  limit: number = 0
+
   @property({ type: Object, attribute: false })
   sessionData?: UploadSessionData
 
@@ -66,6 +75,10 @@ export class AudiodnUploader extends LitElement {
 
   @state()
   files: UploadingFile[] = []
+
+  /** Files accepted into the queue for this component instance (never decreases). */
+  @state()
+  private _acceptedTotal: number = 0
 
   @state()
   isLoading: boolean = true
@@ -312,7 +325,7 @@ export class AudiodnUploader extends LitElement {
   }
 
   handleDragOver (e: DragEvent) {
-    if (this.disabled || this.isLoading) return
+    if (this.disabled || this.isLoading || this.isAtLimit) return
     e.preventDefault()
     e.stopPropagation()
     this.isDragover = true
@@ -330,6 +343,11 @@ export class AudiodnUploader extends LitElement {
     e.preventDefault()
     e.stopPropagation()
     this.isDragover = false
+
+    if (this.isAtLimit) {
+      this.notify('warning', t(this.locale, 'uploader.notify.limitExceeded', { limit: this.limit }))
+      return
+    }
 
     const files = e.dataTransfer?.files
     if (files) {
@@ -395,7 +413,7 @@ export class AudiodnUploader extends LitElement {
       }
 
       xhr.onload = () => {
-        if (xhr.status === 200) {
+        if (xhr.status === 200 || xhr.status === 201 || xhr.status === 204) {
           file.uploadProgress = 100
           file.isComplete = true
           this.notify('success', t(this.locale, 'uploader.notify.uploadSuccess', { filename: file.name }))
@@ -480,21 +498,43 @@ export class AudiodnUploader extends LitElement {
       return
     }
 
-    const newFiles = audioFiles.map(file => {
+    const remaining = this.remainingSlots
+    if (remaining !== null && remaining <= 0) {
+      this.notify('warning', t(this.locale, 'uploader.notify.limitExceeded', { limit: this.limit }))
+      return
+    }
+
+    const accepted = remaining === null ? audioFiles : audioFiles.slice(0, remaining)
+    if (accepted.length < audioFiles.length) {
+      this.notify('warning', t(this.locale, 'uploader.notify.limitExceeded', { limit: this.limit }))
+    }
+
+    const newFiles = accepted.map(file => {
       const uploadingFile = file as UploadingFile
       uploadingFile.uploadProgress = 0
       return uploadingFile
     })
 
+    this._acceptedTotal += newFiles.length
     this.files = [...this.files, ...newFiles]
 
     newFiles.forEach(file => this.uploadFile(file))
 
     this.dispatchEvent(new CustomEvent('files-selected', {
-      detail: { files: audioFiles },
+      detail: { files: accepted },
       bubbles: true,
       composed: true
     }))
+  }
+
+  /** `null` means unlimited; otherwise how many more files may be added. */
+  protected get remainingSlots (): number | null {
+    if (!this.limit || this.limit < 1) return null
+    return Math.max(0, this.limit - this._acceptedTotal)
+  }
+
+  protected get isAtLimit (): boolean {
+    return this.remainingSlots === 0
   }
 
   protected get totalProgress (): number {
@@ -506,6 +546,7 @@ export class AudiodnUploader extends LitElement {
   }
 
   protected handleUploadZoneKeydown (e: KeyboardEvent) {
+    if (this.disabled || this.isAtLimit) return
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       this.shadowRoot?.querySelector('input')?.click()
@@ -516,6 +557,8 @@ export class AudiodnUploader extends LitElement {
 function template (this: AudiodnUploader) {
   const totalFiles = this.files.filter(f => !f.uploadError).length
   const showTotalProgress = totalFiles > 1
+  const selectionDisabled = this.disabled || this.isAtLimit
+  const allowMultiple = this.limit !== 1
 
   return html`
     <audiodn-notification .locale=${this.locale}></audiodn-notification>
@@ -538,7 +581,7 @@ function template (this: AudiodnUploader) {
             </div>
           `
         : html`
-            <div class="uploader-upload-container ${this.disabled ? 'disabled' : ''} ${this.isDragover ? 'dragover' : ''}"
+            <div class="uploader-upload-container ${selectionDisabled ? 'disabled' : ''} ${this.isDragover ? 'dragover' : ''}"
                  role="region"
                  aria-label=${t(this.locale, 'uploader.aria.fileArea')}
                  @dragover=${this.handleDragOver}
@@ -552,15 +595,15 @@ function template (this: AudiodnUploader) {
                 <span>${t(this.locale, 'uploader.or')}</span>
               </div>
               <button class="uploader-browse-button"
-                      ?disabled=${this.disabled}
+                      ?disabled=${selectionDisabled}
                       @click=${() => this.shadowRoot?.querySelector('input')?.click()}
                       @keydown=${(e: KeyboardEvent) => this.handleUploadZoneKeydown(e)}>
                 ${t(this.locale, 'uploader.browseFiles')}
               </button>
               <input type="file"
-                     multiple
+                     ?multiple=${allowMultiple}
                      accept="audio/*"
-                     ?disabled=${this.disabled}
+                     ?disabled=${selectionDisabled}
                      @change=${this.handleFileSelect}
                      aria-label=${t(this.locale, 'uploader.aria.selectFiles')}>
             </div>

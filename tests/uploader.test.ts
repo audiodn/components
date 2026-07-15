@@ -180,6 +180,32 @@ describe('AudiodnUploader', () => {
       expect(mockGetTrackUploadUrl).toHaveBeenCalledWith('up-sess-1', 'song.mp3', expect.any(Number), 'en')
       expect(filesSpy).toHaveBeenCalled()
     })
+
+    it('respects the limit attribute for the component lifetime', async () => {
+      element.limit = 1
+      await element.updateComplete
+
+      ;(element as any).handleFiles(fileList(
+        makeAudioFile('a.mp3'),
+        makeAudioFile('b.mp3'),
+      ))
+      await element.updateComplete
+
+      expect(element.files).toHaveLength(1)
+      expect(element.files[0].name).toBe('a.mp3')
+      expect(await notificationMessage()).toBe('You can upload at most 1 file(s).')
+
+      // Simulate a completed upload leaving the UI — the lifetime limit must
+      // still block further selections.
+      element.files = []
+      await element.updateComplete
+
+      ;(element as any).handleFiles(fileList(makeAudioFile('c.mp3')))
+      await element.updateComplete
+
+      expect(element.files).toHaveLength(0)
+      expect(await notificationMessage()).toBe('You can upload at most 1 file(s).')
+    })
   })
 
   describe('Upload flow', () => {
@@ -203,6 +229,23 @@ describe('AudiodnUploader', () => {
 
       xhr!.status = 200
       xhr!.onload?.()
+
+      expect((file as any).isComplete).toBe(true)
+      expect((file as any).uploadProgress).toBe(100)
+      expect(uploadedSpy).toHaveBeenCalled()
+    })
+
+    it('treats PUT 204 as a successful upload', async () => {
+      mockGetTrackUploadUrl.mockResolvedValue({ ...uploadUrlResponse })
+      const uploadedSpy = vi.fn()
+      element.addEventListener('file-uploaded', uploadedSpy)
+
+      const file = makeAudioFile('no-content.mp3')
+      await (element as any).uploadFile(file)
+
+      const xhr = MockXHR.instances[0]!
+      xhr.status = 204
+      xhr.onload?.()
 
       expect((file as any).isComplete).toBe(true)
       expect((file as any).uploadProgress).toBe(100)

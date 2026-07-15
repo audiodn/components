@@ -33,15 +33,45 @@ describe('fetchSession', () => {
     expect(mockCreatePlayerSession).not.toHaveBeenCalled()
   })
 
-  it('wraps a failed existing-session fetch in a friendly error', async () => {
+  it('falls through to create when an existing session fails and credentials are present', async () => {
     mockGetPlaySession.mockRejectedValue(new Error('boom'))
-    await expect(fetchSession({ ...baseFetch, playSessionId: 'sess-1' }))
-      .rejects.toThrow('failed to fetch session')
+    mockCreatePlayerSession.mockResolvedValue({
+      ok: true,
+      tracks: [{ id: 'a', order: 1 }],
+    })
+
+    const result = await fetchSession({ ...baseFetch, playSessionId: 'sess-1' })
+    expect(mockCreatePlayerSession).toHaveBeenCalledWith(
+      'key-1', 'collection', 'player-1', ['hq', 'lq'], undefined, undefined, undefined
+    )
+    expect(result.tracks.map(t => t.id)).toEqual(['a'])
   })
 
-  it('throws when apiKey, scope, and id are all missing', async () => {
-    await expect(fetchSession({ playSessionId: '', id: '', apiKey: '', scope: '', variants: ['hq'] }))
-      .rejects.toThrow('apiKey & id must be provided')
+  it('throws when an existing session fails and credentials are incomplete', async () => {
+    mockGetPlaySession.mockRejectedValue(new Error('boom'))
+    await expect(fetchSession({
+      playSessionId: 'sess-1',
+      id: '',
+      apiKey: '',
+      scope: '',
+      variants: ['hq'],
+    })).rejects.toThrow('failed to fetch session')
+    expect(mockCreatePlayerSession).not.toHaveBeenCalled()
+  })
+
+  it('throws when apiKey is missing on the create path', async () => {
+    await expect(fetchSession({ ...baseFetch, apiKey: '' }))
+      .rejects.toThrow('apiKey must be provided')
+  })
+
+  it('throws when scope is missing on the create path', async () => {
+    await expect(fetchSession({ ...baseFetch, scope: '' }))
+      .rejects.toThrow('scope must be provided')
+  })
+
+  it('throws when id is missing on the create path', async () => {
+    await expect(fetchSession({ ...baseFetch, id: '' }))
+      .rejects.toThrow('id must be provided')
   })
 
   it('throws when no variants are provided', async () => {

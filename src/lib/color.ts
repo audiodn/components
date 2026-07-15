@@ -157,3 +157,13 @@ export function accentForTheme (hex: string | null | undefined, theme: Effective
   const direction: 1 | -1 = theme === 'light' ? -1 : 1
   return rgbToHex(adjustForContrast(hsv, background, direction))
 }
+
+/**
+ * Neutral greyscale accent used before a track's `player_color` is known.
+ * Shifted for contrast against the active light/dark player background.
+ */
+export const PLACEHOLDER_ACCENT_BASE = '#71717a'
+
+export function placeholderAccent (theme: EffectiveTheme): string {
+  return accentForTheme(PLACEHOLDER_ACCENT_BASE, theme) ?? (theme === 'light' ? '#52525b' : '#a1a1aa')
+}

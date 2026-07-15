@@ -2,7 +2,7 @@ import type { PlaySession } from './session.ts'
 
 export interface Track {
   id: string
-  coverImagePrefix: string
+  coverImagePrefix: string | null
   index: string
   duration: number
   info: null | Record<string, unknown>
@@ -85,6 +85,20 @@ export interface TrackLevels {
   numSamples: number
 }
 
+export type CoverImageSize = {
+  height: number
+  type: string
+  url: string
+  width: number
+}
+
+export type CoverImage = {
+  icon?: CoverImageSize
+  large?: CoverImageSize
+  regular?: CoverImageSize
+  small?: CoverImageSize
+}
+
 export interface TrackData {
   ok: boolean
   playSessionId: string
@@ -93,24 +107,42 @@ export interface TrackData {
   track: Track
   levels: TrackLevels
   variants: TrackVariant[]
-  coverImage: {
-    icon: CoverImageSize
-    large: CoverImageSize
-    regular: CoverImageSize
-    small: CoverImageSize
+  coverImage?: CoverImage
+}
+
+/** True when a cover size entry has a usable delivery URL. */
+export function isUsableCoverImageSize (data: unknown): data is CoverImageSize {
+  if (!data || typeof data !== 'object') return false
+  const url = (data as CoverImageSize).url
+  if (typeof url !== 'string' || !url.trim()) return false
+  // API historically emitted Cloudflare URLs with a literal "null"/"undefined" id
+  // when no cover existed — treat those as missing.
+  if (/\/(null|undefined)(?:\/|$)/i.test(url)) return false
+  return true
+}
+
+/**
+ * Normalize an API cover_image payload into a sparse CoverImage, or undefined
+ * when no usable size is present.
+ */
+export function normalizeCoverImage (raw: unknown): CoverImage | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+
+  const source = raw as Record<string, unknown>
+  const out: CoverImage = {}
+  let any = false
+
+  for (const key of ['icon', 'small', 'regular', 'large'] as const) {
+    const entry = source[key]
+    if (!isUsableCoverImageSize(entry)) continue
+    out[key] = {
+      height: Number(entry.height) || 0,
+      type: String(entry.type || ''),
+      url: entry.url.trim(),
+      width: Number(entry.width) || 0,
+    }
+    any = true
   }
-}
 
-export type CoverImage = {
-  icon: CoverImageSize
-  large: CoverImageSize
-  regular: CoverImageSize
-  small: CoverImageSize
-}
-
-export type CoverImageSize = {
-  height: number
-  type: string
-  url: string
-  width: number
+  return any ? out : undefined
 }

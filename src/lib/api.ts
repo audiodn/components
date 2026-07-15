@@ -1,4 +1,5 @@
 import type { Track, TrackVariant, TrackVariantPreview } from './track.ts'
+import { normalizeCoverImage } from './track.ts'
 import type { SessionData, PlaySessionTrack } from './session.ts'
 
 // ---------------------------------------------------------------------
@@ -96,7 +97,7 @@ type coverImageSize = {
 
 type track = {
   id: string
-  cover_image_prefix: string
+  cover_image_prefix: string | null
   index: string
   duration: number | null
   info: null | Record<string, unknown>
@@ -135,7 +136,7 @@ type coverImage = {
   large: coverImageSize
   regular: coverImageSize
   small: coverImageSize
-}
+} | null
 
 type variant = {
   id: string
@@ -381,7 +382,7 @@ export async function getPlaySessionTrack (
       track: camelcaseKeys(body.track) as Track,
       levels: camelcaseKeys(body.levels),
       variants: parseVariants(body.variants),
-      coverImage: camelcaseKeys(body.cover_image),
+      coverImage: normalizeCoverImage(camelcaseKeys(body.cover_image)),
     } as PlaySessionTrack
   })
 }
@@ -392,7 +393,7 @@ export async function getPlaySessionTrackVariantDownload (
   variant: string,
   locale?: string
 ): Promise<TrackVariantDownload> {
-  const path = `/v1/play/${playSessionId}/${trackId}/${variant}/download`
+  const path = `/v1/play/${playSessionId}/${trackId}/${encodeURIComponent(String(variant).toLowerCase())}/download`
 
   return logApiCall('GET', path, async () => {
     const urlPlaySessionTrack = `${apiURL}${path}`
@@ -520,7 +521,7 @@ function parseFirstTrack (firstTrack: {
     track: camelcaseKeys(firstTrack.track) as Track,
     levels: camelcaseKeys(firstTrack.levels),
     variants: parseVariants(firstTrack.variants),
-    coverImage: camelcaseKeys(firstTrack.cover_image),
+    coverImage: normalizeCoverImage(camelcaseKeys(firstTrack.cover_image)),
   } as PlaySessionTrack
 }
 
@@ -530,12 +531,14 @@ function toCamel (str: string): string {
   })
 }
 
-function camelcaseKeys (obj: object): object {
+function camelcaseKeys (obj: object | null | undefined): object | null | undefined {
+  if (obj === null || obj === undefined) return obj
+
   const newObj: { [index: string]: unknown } = {}
 
   for (const [key, value] of Object.entries(obj)) {
     if (value !== null && value !== undefined && value.constructor === Object) {
-      newObj[toCamel(key)] = camelcaseKeys(value)
+      newObj[toCamel(key)] = camelcaseKeys(value as object)
       continue
     }
 

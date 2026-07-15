@@ -17,11 +17,11 @@ import { createStorage } from './lib/storage.ts'
 import { fetchSession, SessionExpiryTimer } from './lib/session.ts'
 import { getPlaySessionTrack, ApiError } from './lib/api.ts'
 import { createAudioInstance } from './lib/audio.ts'
-import { isDark as isColorDark, parseHex } from './lib/color.ts'
+import { isDark as isColorDark, parseHex, placeholderAccent } from './lib/color.ts'
 import { t, type Locale } from './lib/i18n.ts'
 
 import type { CSSResult } from 'lit'
-import type { SessionData, PlaySession, PlaySessionTrack, FetchSession } from './lib/session.ts'
+import type { SessionData, PlaySession, PlaySessionTrack } from './lib/session.ts'
 import type { BrowserStorage, storage } from './lib/storage.ts'
 import type { Track, TrackVariant, TrackLevels, CoverImage } from './lib/track.ts'
 import type { audioEventHandler } from './lib/audio.ts'
@@ -42,7 +42,8 @@ export class AudioDnPlayer extends LitElement {
   @property({ type: String, attribute: 'play-session-id' })
   playSessionId?: string
 
-  @property({ type: String, attribute: 'api-key', reflect: true })
+  // Do not reflect: the key must not appear in DOM serialization / HTML.
+  @property({ type: String, attribute: 'api-key' })
   apiKey?: string
 
   @property({ type: String, attribute: 'scope', reflect: true })
@@ -157,13 +158,14 @@ export class AudioDnPlayer extends LitElement {
 
   private _audioRetryCount = 0
   private _audioMaxRetries = 2
+  private _audioRetryTimer?: ReturnType<typeof setTimeout>
   private _trackCache = new Map<string, import('./lib/session.ts').PlaySessionTrack>()
   private _sessionTimer = new SessionExpiryTimer()
   private _loaderTimer?: ReturnType<typeof setTimeout>
   private _schemeQuery?: MediaQueryList
   private _onSchemeChange = () => {
     // Only the `auto` theme tracks the OS setting; re-apply the accent so it
-    // uses the correct light/dark variant for the newly-preferred scheme.
+    // uses the correct light/dark greyscale (pre-load) or track color variant.
     if (this.theme === 'auto') this.applyAccent()
   }
 
@@ -177,6 +179,9 @@ export class AudioDnPlayer extends LitElement {
       this._schemeQuery.addEventListener('change', this._onSchemeChange)
     }
 
+    // Greyscale accents until the session/track establishes player_color.
+    this.applyAccent()
+
     await this.loadSession()
 
     this.volume = this.getVolumeFromStorage()
@@ -186,9 +191,9 @@ export class AudioDnPlayer extends LitElement {
   }
 
   protected updated (changedProperties: Map<string, unknown>) {
-    // When the theme attribute changes, re-resolve the accent to the matching
-    // light/dark variant for the active track.
-    if (changedProperties.has('theme') && this.activeTrack) {
+    // When the theme attribute changes, re-resolve the accent (greyscale
+    // placeholder or the track's theme-aware player_color variant).
+    if (changedProperties.has('theme')) {
       this.applyAccent()
     }
   }
@@ -207,8 +212,18 @@ export class AudioDnPlayer extends LitElement {
     this.startLoader()
 
     try {
-      this.sessionData = await fetchSession(this as unknown as FetchSession)
+      this.sessionData = await fetchSession({
+        playSessionId: this.playSessionId || '',
+        id: this.id,
+        apiKey: this.apiKey || '',
+        scope: this.scope,
+        variants: this.getVariants(),
+        sessionTtl: this.sessionTtl,
+        locale: this.locale,
+        downloadable: this.downloadable,
+      })
       this.tracks = this.sessionData.tracks
+      this.playSession = this.sessionData.playSession
       this.scheduleSessionExpiry()
 
       if (this.tracks[0]) {
@@ -263,6 +278,10 @@ export class AudioDnPlayer extends LitElement {
       clearTimeout(this._loaderTimer)
       this._loaderTimer = undefined
     }
+    if (this._audioRetryTimer) {
+      clearTimeout(this._audioRetryTimer)
+      this._audioRetryTimer = undefined
+    }
     document.removeEventListener('adn-volumechange', this)
     document.removeEventListener('adn-playchange', this)
     this.audio.pause()
@@ -296,6 +315,10 @@ export class AudioDnPlayer extends LitElement {
     if (!this.apiKey) return
 
     try {
+      const wasPlaying = this.state === 'playing'
+      const resumeAt = this.audio.currentTime || 0
+      const currentTrackId = this.activeTrack?.id
+
       this.sessionData = await fetchSession({
         playSessionId: '',
         id: this.id,
@@ -306,8 +329,30 @@ export class AudioDnPlayer extends LitElement {
         locale: this.locale,
         downloadable: this.downloadable,
       })
+      this.tracks = this.sessionData.tracks
+      this.playSession = this.sessionData.playSession
       this._trackCache.clear()
       this.scheduleSessionExpiry()
+
+      // Rebind the active track so signed URLs and playSession match the new session.
+      if (currentTrackId) {
+        const track = this.tracks.find((t) => t.id === currentTrackId) ||
+          this.activeTrack ||
+          this.tracks[0]
+        if (track) {
+          await this.selectTrack(track)
+          if (resumeAt > 0 && Number.isFinite(resumeAt)) {
+            try {
+              this.audio.currentTime = resumeAt
+            } catch {
+              // ignore seek failures on a freshly swapped source
+            }
+          }
+          if (wasPlaying) {
+            this.startPlayback()
+          }
+        }
+      }
 
       this.dispatchEvent(new CustomEvent('adn-session-refreshed', {
         detail: { playSessionId: this.sessionData.playSessionId },
@@ -413,16 +458,24 @@ export class AudioDnPlayer extends LitElement {
 
   // Resolve the accent for the active track using the theme-aware color
   // variant: `playerColorDark` on a dark background, `playerColorLight` on a
-  // light one (falling back to the base `playerColor`). The foreground drawn on
-  // the accent (`--_color-accent-alt`, e.g. the play button icon) is chosen from
-  // the luminance of the resolved accent so it always reads.
+  // light one (falling back to the base `playerColor`). Before a track loads —
+  // or when `player_color` is not set — use a greyscale placeholder tuned for
+  // the effective light/dark theme. The foreground drawn on the accent
+  // (`--_color-accent-alt`, e.g. the play button icon) is chosen from the
+  // luminance of the resolved accent so it always reads.
   private applyAccent () {
     const track = this.activeTrack
-    if (!track) return
-
     const effectiveTheme = this.getEffectiveTheme()
-    const variant = effectiveTheme === 'light' ? track.playerColorLight : track.playerColorDark
-    const accent = variant || track.playerColor
+
+    let accent: string | null = null
+    if (track) {
+      const variant = effectiveTheme === 'light' ? track.playerColorLight : track.playerColorDark
+      const candidate = (variant || track.playerColor || '').trim()
+      accent = parseHex(candidate) ? candidate : null
+    }
+    if (!accent) {
+      accent = placeholderAccent(effectiveTheme)
+    }
 
     this.activeColor = accent
     this.activeColorIsDark = isColorDark(accent)
@@ -459,14 +512,17 @@ export class AudioDnPlayer extends LitElement {
 
   sortVariants (variants: TrackVariant[]): TrackVariant[] {
     const attributeOrder = this.getVariants()
-    const order = [] as TrackVariant[]
+    const ordered: TrackVariant[] = []
+    const remaining: TrackVariant[] = []
 
     for (const v of variants) {
-      const idx = v.variant.index
-      order[attributeOrder.indexOf(idx)] = v
+      const idx = (v.variant.index || '').toLowerCase()
+      const pos = attributeOrder.indexOf(idx)
+      if (pos >= 0) ordered[pos] = v
+      else remaining.push(v)
     }
 
-    return order
+    return [...ordered.filter(Boolean), ...remaining]
   }
 
   selectVariant (variant: TrackVariant, options?: { loadAudio?: boolean }) {
@@ -529,13 +585,14 @@ export class AudioDnPlayer extends LitElement {
       index = this.getVariants()[0]
     }
 
-    const variant = variants.find(v => v.variant.index === index)
+    const lower = index ? String(index).toLowerCase() : ''
+    const variant = variants.find(v => (v.variant.index || '').toLowerCase() === lower)
     if (!variant && variants[0]) {
       this.selectedVariantIndex = variants[0].variant.index
       return variants[0]
     }
 
-    this.selectedVariantIndex = index
+    this.selectedVariantIndex = variant?.variant.index ?? index
     return variant
   }
 
@@ -725,7 +782,9 @@ export class AudioDnPlayer extends LitElement {
           this._audioRetryCount++
           this.isBuffering = true
           const delay = 1000 * Math.pow(2, this._audioRetryCount - 1)
-          setTimeout(() => {
+          if (this._audioRetryTimer) clearTimeout(this._audioRetryTimer)
+          this._audioRetryTimer = setTimeout(() => {
+            this._audioRetryTimer = undefined
             if (this.activeVariant) {
               this.clearAudioSource()
               this.ensureAudioSource()
@@ -772,7 +831,7 @@ export class AudioDnPlayer extends LitElement {
   getVariants () {
     return this.variants
       .split(',')
-      .map((v) => v.trim())
+      .map((v) => v.trim().toLowerCase())
       .filter(Boolean)
   }
 }
@@ -864,8 +923,9 @@ function styles ({
       --_bg-light: var(--adn-bg-light, #333);
       --_color-font: var(--adn-color-font, #fff);
       --_color-font-muted: var(--adn-color-font-muted, #bbb);
-      --_color-accent: var(--adn-color-accent, #c13c5b);
-      --_color-accent-rgb: var(--adn-color-accent-rgb, rgb(193 60 91));
+      /* Greyscale until track player_color is established (dark-theme default). */
+      --_color-accent: var(--adn-color-accent, #a1a1aa);
+      --_color-accent-rgb: var(--adn-color-accent-rgb, 161, 161, 170);
       --_color-accent-dark: var(--adn-color-accent-dark, #fff);
       --_color-accent-light: var(--adn-color-accent-light, #000);
       --_transition: all var(--adn-animation-speed, 300ms) ease-in-out;

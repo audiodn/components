@@ -38,39 +38,21 @@ export type PlaySessionTrack = {
   track: Track
   levels: TrackLevels
   variants: TrackVariant[]
-  coverImage: CoverImage
+  coverImage?: CoverImage
 }
 
 /**
  * fetches an existing session when provided with playSessionId.
  * When the session is expired, or does not exist a new session
- * is created
+ * is created (when apiKey, scope, and id are available).
  *
  * @async
- * @param {fetchSession} fetchSession - player instance data used to make api calls
- * @param {string} fetchSession.playSessionId - existing session id
- * @param {string} fetchSession.id - player instance id
- * @param {string} fetchSession.apiKey - player instance api key
- * @param {string} fetchSession.scope - player instance scope
- * @param {string[]} fetchSession.variants - list of accepted variants
- * @throws {Error} - when apiKey, scope, and id are not provided
+ * @param {FetchSession} fetchSession - player instance data used to make api calls
+ * @throws {Error} - when apiKey, scope, or id are not provided (for create path)
  * @throws {Error} - when no variants are provided
+ * @throws {Error} - when the existing session cannot be fetched and create is not possible
  * @throws {Error} - when the api responds with an error
- * @returns {Promise<SessionData | undefined>} session data with tracks ordered
- *
- * @example
- *
- *   this.sessionData = await Session.fetchSession({
- *     playSessionId: "player-abc123',
- *     id: "04ea3a34-a0f7-45e8-a711-9c7274490e2e",
- *     apiKey: "super-secret",
- *     scipe: "collection",
- *     variants: ["hq", "lq"]
- *   })
- *
- *   // from player instance, which has properties set on `this`
- *   this.sessionData = await Session.fetchSession(this)
- *
+ * @returns {Promise<SessionData>} session data with tracks ordered
  */
 export async function fetchSession ({
   playSessionId,
@@ -89,12 +71,21 @@ export async function fetchSession ({
         return existingSessionData as SessionData
       }
     } catch (err) {
-      throw new Error('failed to fetch session', { cause: err })
+      // Expired or missing sessions: fall through to create when credentials exist.
+      if (!(apiKey && scope && id)) {
+        throw new Error('failed to fetch session', { cause: err })
+      }
     }
   }
 
-  if (!apiKey && !scope && !id) {
-    throw new Error('apiKey & id must be provided')
+  if (!apiKey) {
+    throw new Error('apiKey must be provided')
+  }
+  if (!scope) {
+    throw new Error('scope must be provided')
+  }
+  if (!id) {
+    throw new Error('id must be provided')
   }
 
   if (!variants.length) {
