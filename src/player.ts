@@ -226,14 +226,28 @@ export class AudioDnPlayer extends LitElement {
       this.playSession = this.sessionData.playSession
       this.scheduleSessionExpiry()
 
+      // Single-track mode: when both `play-session-id` and `id` are set, limit
+      // the player to that one track (hides the collection tracklist). Useful
+      // when a host minted a collection-scoped session but wants each player
+      // instance pinned to a specific track.
+      const focusTrackId = this.playSessionId && this.id ? this.id : ''
+      if (focusTrackId && this.tracks.length > 0) {
+        const matched = this.tracks.find(t => t.id === focusTrackId)
+        const target = matched ?? this.tracks[0]
+        if (target) this.tracks = [target]
+      }
+
       if (this.tracks[0]) {
-        if (this.sessionData.firstTrack) {
-          this._trackCache.set(this.tracks[0].id, this.sessionData.firstTrack)
-          this.applyTrackData(this.tracks[0], this.sessionData.firstTrack)
-          this.prefetchAdjacentTracks(this.tracks[0])
+        const opening = this.tracks[0]
+        const canReuseFirstTrack = this.sessionData.firstTrack &&
+          this.sessionData.firstTrack.trackId === opening.id
+        if (canReuseFirstTrack && this.sessionData.firstTrack) {
+          this._trackCache.set(opening.id, this.sessionData.firstTrack)
+          this.applyTrackData(opening, this.sessionData.firstTrack)
+          this.prefetchAdjacentTracks(opening)
           if (this.autoplay) this.startPlayback()
         } else {
-          await this.selectTrack(this.tracks[0])
+          await this.selectTrack(opening)
           if (this.autoplay) this.startPlayback()
         }
       }

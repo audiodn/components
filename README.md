@@ -93,14 +93,19 @@ import '@audiodn/components/player'
 You must provide **either** `api-key` (the player creates the session) **or**
 `play-session-id` (you created the session server-side).
 
+When using a pre-created `play-session-id` for a collection, you can also set
+`id` to a track UUID to pin the player to that single track (the tracklist is
+hidden and playback opens on that track). Combine with `variants` to choose
+which variant indexes are available and which is selected by default.
+
 ### Attributes
 
 | Attribute | Type | Default | Description / possible values |
 |-----------|------|---------|-------------------------------|
 | `api-key` | string | — | Client-side player API key. The player creates a play session for `scope`/`id`. Provide this **or** `play-session-id`. |
 | `play-session-id` | string | — | Use an existing play session instead of creating one with `api-key`. |
-| `scope` | string | `""` | The kind of resource `id` refers to. Values: `track`, `collection`. |
-| `id` | string | `""` | ID of the track or collection to play (must match `scope`). |
+| `scope` | string | `""` | The kind of resource `id` refers to when creating a session with `api-key`. Values: `track`, `collection`. |
+| `id` | string | `""` | With `api-key`: ID of the track or collection to open a session for (must match `scope`). With `play-session-id`: optional track UUID to pin the player to a single track in a (typically collection-scoped) session — hides the tracklist and opens on that track. |
 | `variants` | string | `""` | Comma-separated variant indexes to request, in priority order — the **first is selected by default**. e.g. `"hq,lq"`. |
 | `size` | string | `large` | Layout preset. Values: `small`, `regular`, `large`. |
 | `locale` | string | `en` | UI language. Values: `en`, `fr`, `es`, `de`. |
