@@ -19,3 +19,13 @@ export const iconVolumePartial = svg`<svg xmlns="http://www.w3.org/2000/svg" vie
 export const iconDownload = svg`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M96 480a32 32 0 1 1 0-64h320a32 32 0 1 1 0 64H96Zm182.6-137.4a32 32 0 0 1-45.3 0l-128-128a32 32 0 0 1 45.3-45.3l73.4 73.4V64a32 32 0 1 1 64 0v178.7l73.4-73.4a32 32 0 0 1 45.3 45.3l-128 128h-.1Z"/></svg>`
 
 export const iconCloudUpload = svg`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M242.7 165.4h.1a22 22 0 0 1 6.5 4.6l45.4 45.2a22 22 0 0 1-31.1 31.2l-7.8-7.8v83.6a22 22 0 0 1-44 0v-83.6l-7.8 7.8a22 22 0 0 1-30.8.2l-.3-.3a22 22 0 0 1 0-31l45.3-45.3a22.1 22.1 0 0 1 .7-.7h.1l.4-.5h.2c1.6-1.5 3.4-2.6 5.3-3.4l.3-.1a22.2 22.2 0 0 1 7.6-1.7h.1a17.8 17.8 0 0 1 1.2 0h-.3a22.4 22.4 0 0 1 .9 0h.7c2.6.2 5 .8 7.3 1.8Z"/><path d="M199.1 21c68.5 0 131 35 167.3 91.1l.1.3h2a153.7 153.7 0 0 1 143.5 151v2.5c0 46.4-20.7 89.6-55.8 118.6a28.5 28.5 0 0 1-36.3-43.8A96.8 96.8 0 0 0 358.4 169c-15 0-29-7.9-36.7-20.9A142 142 0 0 0 57 220.3 142 142 0 0 0 98.5 321 28.4 28.4 0 1 1 58 361 199.2 199.2 0 0 1 199 21Z"/></svg>`
+
+export const iconMic = svg`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.49 6-3.31 6-6.72h-1.7z"/></svg>`
+
+export const iconStop = svg`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>`
+
+export const iconTrash = svg`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`
+
+export const iconSend = svg`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>`
+
+export const iconCheck = svg`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`

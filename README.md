@@ -1,6 +1,6 @@
 # AudioDN Components
 
-HTML custom elements for the Audio Delivery Network: a `player`, an `uploader`, and a standalone `waveform`. Built with [Lit](https://lit.dev/) and shipped as tree-shakable ES modules.
+HTML custom elements for the Audio Delivery Network: a `player`, an `uploader`, a `recorder`, and a standalone `waveform`. Built with [Lit](https://lit.dev/) and shipped as tree-shakable ES modules.
 
 ## Installation
 
@@ -37,6 +37,13 @@ all that's required.
   collection-id="COLLECTION_ID"
 ></audiodn-uploader>
 
+<!-- Recorder -->
+<script type="module" src="https://unpkg.com/@audiodn/components@latest/dist/recorder.js"></script>
+<audiodn-recorder
+  api-key="YOUR_CLIENT_SIDE_UPLOAD_KEY"
+  collection-id="COLLECTION_ID"
+></audiodn-recorder>
+
 <!-- Waveform -->
 <script type="module" src="https://unpkg.com/@audiodn/components@latest/dist/waveform.js"></script>
 <audiodn-waveform variant="reflection"></audiodn-waveform>
@@ -54,8 +61,9 @@ entry point, so a bundler will only pull in the code for what you actually use.
 |--------|-------------------|
 | `import '@audiodn/components/player'` | `<audiodn-player>` |
 | `import '@audiodn/components/uploader'` | `<audiodn-uploader>` |
+| `import '@audiodn/components/recorder'` | `<audiodn-recorder>` |
 | `import '@audiodn/components/waveform'` | `<audiodn-waveform>` |
-| `import '@audiodn/components'` | all three |
+| `import '@audiodn/components'` | all four |
 
 Once imported, drop the element into your HTML. All configuration is done through
 HTML attributes (documented per component below). Attribute values are strings in
@@ -166,6 +174,92 @@ All events bubble and are composed.
 | `session-error` | `{ error }` | The upload session could not be created or fetched. |
 | `adn-session-refreshed` | `{ uploadSessionId }` | The session was auto-refreshed (only when `api-key` is set). |
 | `adn-session-expired` | `{ uploadSessionId }` | The session expired and could not be refreshed. |
+
+---
+
+## `<audiodn-recorder>`
+
+A voice recorder that captures microphone audio in the browser, lets the user
+preview it with a mini player + waveform, and uploads a single track to AudioDN.
+
+With an `api-key`, the recorder creates the upload session **and** the track in
+one request (`POST /v1/upload_session` with a nested `track` object), then PUTs
+the recording. With an `upload-session-id`, it creates the track inside that
+session like the uploader.
+
+Filenames are generated automatically from the UTC timestamp (e.g.
+`voice-2026-07-21T23-51-00Z.webm`). The browser picks a supported mime type,
+preferring Opus in WebM/Ogg, then MP4/AAC on Safari.
+
+The `file-uploaded` event means the bytes were accepted by storage — not that
+AudioDN has finished processing. Poll `GET /v1/track/:track_id` until
+`track_status_id` is `ready` (or wait for a track webhook) before playing.
+
+```javascript
+import '@audiodn/components/recorder'
+```
+
+```html
+<audiodn-recorder
+  api-key="YOUR_CLIENT_SIDE_UPLOAD_KEY"
+  collection-id="COLLECTION_ID"
+  accent-color="#7c3aed"
+  theme="light"
+></audiodn-recorder>
+```
+
+You must provide **either** `api-key` **or** `upload-session-id`.
+
+### Attributes
+
+| Attribute | Type | Default | Description / possible values |
+|-----------|------|---------|-------------------------------|
+| `api-key` | string | — | Client-side upload API key. Creates session + track on send. Provide this **or** `upload-session-id`. |
+| `upload-session-id` | string | — | Use an existing upload session instead of creating one with `api-key`. |
+| `collection-id` | string | — | Collection to upload into (used with `api-key`). |
+| `accent-color` | string | `#fe008a` | Accent color for the UI. 6-digit hex preferred (also sent as `player_color` when uploading via `api-key`). |
+| `theme` | string | `auto` | Color scheme. Values: `auto`, `light`, `dark`. |
+| `locale` | string | `en` | UI language. Values: `en`, `fr`, `es`, `de`. |
+| `disabled` | boolean | `false` | Disables recording controls. |
+| `max-duration` | number | `0` | Max recording length in seconds. `0` = unlimited. |
+| `countdown` | number | `3` | Pre-record countdown length (`3` → 3‑2‑1). `0` skips the countdown and starts immediately. |
+| `auto-hide` | boolean | `false` | After a successful upload, sets the host to `display: none`. |
+| `variant` | string | `panel` | Layout preset. Currently only `panel`. |
+
+### Events
+
+All events bubble and are composed. Listen for `file-uploaded` when the PUT finishes
+(this is the “upload complete” signal for hosts — it does **not** mean processing is
+`ready`):
+
+```html
+<audiodn-recorder
+  api-key="YOUR_CLIENT_SIDE_UPLOAD_KEY"
+  collection-id="COLLECTION_ID"
+  locale="fr"
+  countdown="3"
+  auto-hide
+></audiodn-recorder>
+
+<script type="module">
+  const recorder = document.querySelector('audiodn-recorder')
+  recorder.addEventListener('file-uploaded', (e) => {
+    const { trackId, fileName, blob } = e.detail
+    console.log('uploaded', trackId, fileName, blob.size)
+  })
+</script>
+```
+
+| Event | `detail` | Fired when |
+|-------|----------|------------|
+| `recording-started` | — | Microphone capture actually began (after the countdown, if any). |
+| `recording-stopped` | `{ blob, duration }` | Recording finished; preview is ready. |
+| `recording-discarded` | — | User discarded the clip (or cancelled mid-record/mid-countdown). |
+| `upload-progress` | `{ percent }` | PUT upload progress (0–100). |
+| `file-uploaded` | `{ trackId, fileName, blob }` | Bytes finished uploading to storage. Does **not** mean the track is `ready`. |
+| `session-error` | `{ error }` | An existing upload session could not be fetched. |
+| `adn-session-refreshed` | `{ uploadSessionId }` | A new session was created on send (api-key path). |
+| `adn-session-expired` | `{ uploadSessionId }` | A pre-created session expired. |
 
 ---
 

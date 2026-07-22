@@ -1,6 +1,6 @@
 {
   "name": "@audiodn/components",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "description": "Custom web components for Audio Delivery Network",
   "type": "module",
   "main": "./dist/index.js",
@@ -18,6 +18,10 @@
     "./uploader": {
       "import": "./dist/uploader.js",
       "types": "./dist/uploader.d.ts"
+    },
+    "./recorder": {
+      "import": "./dist/recorder.js",
+      "types": "./dist/recorder.d.ts"
     },
     "./waveform": {
       "import": "./dist/waveform.js",
@@ -57,6 +61,7 @@
     "**/index.ts",
     "**/player.ts",
     "**/uploader.ts",
+    "**/recorder.ts",
     "**/waveform.ts",
     "**/dev-waveform.ts",
     "**/components/*.ts",

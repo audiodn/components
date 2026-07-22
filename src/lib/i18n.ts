@@ -60,6 +60,33 @@ export type MessageKey =
   | 'uploader.aria.retryFile'
   | 'uploader.aria.cancelUpload'
   | 'uploader.aria.removeFile'
+  | 'recorder.notify.sessionExpired'
+  | 'recorder.notify.uploadSuccess'
+  | 'recorder.notify.uploadFailed'
+  | 'recorder.notify.networkError'
+  | 'recorder.notify.uploadFailedDetail'
+  | 'recorder.notify.micDenied'
+  | 'recorder.notify.micUnavailable'
+  | 'recorder.notify.maxDuration'
+  | 'recorder.error.tryAgain'
+  | 'recorder.aria.loading'
+  | 'recorder.loadingText'
+  | 'recorder.aria.region'
+  | 'recorder.aria.start'
+  | 'recorder.aria.pause'
+  | 'recorder.aria.resume'
+  | 'recorder.aria.stop'
+  | 'recorder.aria.discard'
+  | 'recorder.aria.send'
+  | 'recorder.aria.cancelUpload'
+  | 'recorder.aria.play'
+  | 'recorder.aria.pausePreview'
+  | 'recorder.aria.progress'
+  | 'recorder.aria.done'
+  | 'recorder.aria.cancelCountdown'
+  | 'recorder.timer.preview'
+  | 'recorder.idle.hint'
+  | 'recorder.countdown.hint'
 
 type Messages = Record<MessageKey, string>
 
@@ -116,6 +143,33 @@ const en: Messages = {
   'uploader.aria.retryFile': 'Retry upload for {filename}',
   'uploader.aria.cancelUpload': 'Cancel upload for {filename}',
   'uploader.aria.removeFile': 'Remove file {filename}',
+  'recorder.notify.sessionExpired': 'Your upload session expired.',
+  'recorder.notify.uploadSuccess': 'Recording uploaded successfully',
+  'recorder.notify.uploadFailed': 'Upload failed',
+  'recorder.notify.networkError': 'Network error during upload',
+  'recorder.notify.uploadFailedDetail': 'Upload failed: {error}',
+  'recorder.notify.micDenied': 'Microphone access was denied.',
+  'recorder.notify.micUnavailable': 'Microphone is not available.',
+  'recorder.notify.maxDuration': 'Maximum recording length reached.',
+  'recorder.error.tryAgain': 'Try again',
+  'recorder.aria.loading': 'Loading recorder',
+  'recorder.loadingText': 'Loading…',
+  'recorder.aria.region': 'Voice recorder',
+  'recorder.aria.start': 'Start recording',
+  'recorder.aria.pause': 'Pause recording',
+  'recorder.aria.resume': 'Resume recording',
+  'recorder.aria.stop': 'Stop recording',
+  'recorder.aria.discard': 'Discard recording',
+  'recorder.aria.send': 'Confirm recording',
+  'recorder.aria.cancelCountdown': 'Cancel countdown',
+  'recorder.idle.hint': 'Tap to record',
+  'recorder.countdown.hint': 'Get ready…',
+  'recorder.aria.cancelUpload': 'Cancel upload',
+  'recorder.aria.play': 'Play recording',
+  'recorder.aria.pausePreview': 'Pause playback',
+  'recorder.aria.progress': 'Upload progress',
+  'recorder.aria.done': 'Upload complete',
+  'recorder.timer.preview': '{current}/{total}',
 }
 
 const fr: Messages = {
@@ -171,6 +225,33 @@ const fr: Messages = {
   'uploader.aria.retryFile': 'Réessayer le téléversement pour {filename}',
   'uploader.aria.cancelUpload': 'Annuler le téléversement pour {filename}',
   'uploader.aria.removeFile': 'Retirer le fichier {filename}',
+  'recorder.notify.sessionExpired': 'Votre session de téléversement a expiré.',
+  'recorder.notify.uploadSuccess': 'Enregistrement téléversé avec succès',
+  'recorder.notify.uploadFailed': 'Échec du téléversement',
+  'recorder.notify.networkError': 'Erreur réseau pendant le téléversement',
+  'recorder.notify.uploadFailedDetail': 'Échec du téléversement : {error}',
+  'recorder.notify.micDenied': 'L’accès au microphone a été refusé.',
+  'recorder.notify.micUnavailable': 'Le microphone n’est pas disponible.',
+  'recorder.notify.maxDuration': 'Durée maximale d’enregistrement atteinte.',
+  'recorder.error.tryAgain': 'Réessayer',
+  'recorder.aria.loading': 'Chargement de l’enregistreur',
+  'recorder.loadingText': 'Chargement…',
+  'recorder.aria.region': 'Enregistreur vocal',
+  'recorder.aria.start': 'Démarrer l’enregistrement',
+  'recorder.aria.pause': 'Mettre en pause',
+  'recorder.aria.resume': 'Reprendre l’enregistrement',
+  'recorder.aria.stop': 'Arrêter l’enregistrement',
+  'recorder.aria.discard': 'Supprimer l’enregistrement',
+  'recorder.aria.send': 'Confirmer l’enregistrement',
+  'recorder.aria.cancelCountdown': 'Annuler le compte à rebours',
+  'recorder.idle.hint': 'Appuyez pour enregistrer',
+  'recorder.countdown.hint': 'Préparez-vous…',
+  'recorder.aria.cancelUpload': 'Annuler le téléversement',
+  'recorder.aria.play': 'Lire l’enregistrement',
+  'recorder.aria.pausePreview': 'Mettre la lecture en pause',
+  'recorder.aria.progress': 'Progression du téléversement',
+  'recorder.aria.done': 'Téléversement terminé',
+  'recorder.timer.preview': '{current}/{total}',
 }
 
 const es: Messages = {
@@ -226,6 +307,33 @@ const es: Messages = {
   'uploader.aria.retryFile': 'Reintentar la subida de {filename}',
   'uploader.aria.cancelUpload': 'Cancelar la subida de {filename}',
   'uploader.aria.removeFile': 'Quitar el archivo {filename}',
+  'recorder.notify.sessionExpired': 'Tu sesión de subida ha expirado.',
+  'recorder.notify.uploadSuccess': 'Grabación subida correctamente',
+  'recorder.notify.uploadFailed': 'Error al subir',
+  'recorder.notify.networkError': 'Error de red durante la subida',
+  'recorder.notify.uploadFailedDetail': 'Error al subir: {error}',
+  'recorder.notify.micDenied': 'Se denegó el acceso al micrófono.',
+  'recorder.notify.micUnavailable': 'El micrófono no está disponible.',
+  'recorder.notify.maxDuration': 'Se alcanzó la duración máxima de grabación.',
+  'recorder.error.tryAgain': 'Intentar de nuevo',
+  'recorder.aria.loading': 'Cargando el grabador',
+  'recorder.loadingText': 'Cargando…',
+  'recorder.aria.region': 'Grabador de voz',
+  'recorder.aria.start': 'Iniciar grabación',
+  'recorder.aria.pause': 'Pausar grabación',
+  'recorder.aria.resume': 'Reanudar grabación',
+  'recorder.aria.stop': 'Detener grabación',
+  'recorder.aria.discard': 'Descartar grabación',
+  'recorder.aria.send': 'Confirmar grabación',
+  'recorder.aria.cancelCountdown': 'Cancelar cuenta atrás',
+  'recorder.idle.hint': 'Toca para grabar',
+  'recorder.countdown.hint': 'Prepárate…',
+  'recorder.aria.cancelUpload': 'Cancelar subida',
+  'recorder.aria.play': 'Reproducir grabación',
+  'recorder.aria.pausePreview': 'Pausar reproducción',
+  'recorder.aria.progress': 'Progreso de subida',
+  'recorder.aria.done': 'Subida completa',
+  'recorder.timer.preview': '{current}/{total}',
 }
 
 const de: Messages = {
@@ -281,6 +389,33 @@ const de: Messages = {
   'uploader.aria.retryFile': 'Upload für {filename} wiederholen',
   'uploader.aria.cancelUpload': 'Upload für {filename} abbrechen',
   'uploader.aria.removeFile': 'Datei {filename} entfernen',
+  'recorder.notify.sessionExpired': 'Ihre Upload-Sitzung ist abgelaufen.',
+  'recorder.notify.uploadSuccess': 'Aufnahme erfolgreich hochgeladen',
+  'recorder.notify.uploadFailed': 'Upload fehlgeschlagen',
+  'recorder.notify.networkError': 'Netzwerkfehler während des Uploads',
+  'recorder.notify.uploadFailedDetail': 'Upload fehlgeschlagen: {error}',
+  'recorder.notify.micDenied': 'Mikrofonzugriff wurde verweigert.',
+  'recorder.notify.micUnavailable': 'Mikrofon ist nicht verfügbar.',
+  'recorder.notify.maxDuration': 'Maximale Aufnahmedauer erreicht.',
+  'recorder.error.tryAgain': 'Erneut versuchen',
+  'recorder.aria.loading': 'Recorder wird geladen',
+  'recorder.loadingText': 'Wird geladen…',
+  'recorder.aria.region': 'Sprachrekorder',
+  'recorder.aria.start': 'Aufnahme starten',
+  'recorder.aria.pause': 'Aufnahme pausieren',
+  'recorder.aria.resume': 'Aufnahme fortsetzen',
+  'recorder.aria.stop': 'Aufnahme beenden',
+  'recorder.aria.discard': 'Aufnahme verwerfen',
+  'recorder.aria.send': 'Aufnahme bestätigen',
+  'recorder.aria.cancelCountdown': 'Countdown abbrechen',
+  'recorder.idle.hint': 'Tippen zum Aufnehmen',
+  'recorder.countdown.hint': 'Bereit machen…',
+  'recorder.aria.cancelUpload': 'Upload abbrechen',
+  'recorder.aria.play': 'Aufnahme abspielen',
+  'recorder.aria.pausePreview': 'Wiedergabe pausieren',
+  'recorder.aria.progress': 'Upload-Fortschritt',
+  'recorder.aria.done': 'Upload abgeschlossen',
+  'recorder.timer.preview': '{current}/{total}',
 }
 
 const translations: Record<Locale, Messages> = { en, fr, es, de }

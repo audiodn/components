@@ -196,6 +196,21 @@ export interface TrackUploadResponse {
   track_upload: TrackUpload
 }
 
+/** Response when `POST /v1/upload_session` includes a nested `track` object. */
+export interface UploadSessionWithTrackResponse extends UploadSessionData {
+  track_id: string
+  track_upload: TrackUpload & {
+    method?: 'PUT' | 'POST'
+    ttl?: number
+    expires_at?: string
+  }
+  track_cover_upload?: TrackUpload & {
+    method?: 'PUT' | 'POST'
+    ttl?: number
+    expires_at?: string
+  }
+}
+
 export interface TrackVariantDownload {
   ok: boolean
   play_session_id: string
@@ -435,6 +450,64 @@ export async function createUploadSession (
     }
 
     return body as UploadSessionData
+  })
+}
+
+export interface CreateUploadSessionTrackOpts {
+  player_title?: string
+  player_subtitle?: string
+  player_color?: string
+  metadata?: Record<string, unknown>
+  organization_index?: string
+}
+
+/**
+ * Create an upload session and a track in one request (nested `track` on
+ * `POST /v1/upload_session`). Returns session fields plus `track_id` and
+ * `track_upload.upload_url` so a single-file uploader can skip the separate
+ * `POST /v1/upload/{id}/track` call.
+ */
+export async function createUploadSessionWithTrack (
+  apiKey: string,
+  collectionId: string | undefined,
+  fileName: string,
+  opts?: CreateUploadSessionTrackOpts,
+  locale?: string
+): Promise<UploadSessionWithTrackResponse> {
+  const path = '/v1/upload_session'
+
+  return logApiCall('POST', path, async () => {
+    const urlUploadSession = `${apiURL}${path}`
+    const track: Record<string, unknown> = { file_name: fileName }
+    if (opts?.player_title) track.player_title = opts.player_title
+    if (opts?.player_subtitle) track.player_subtitle = opts.player_subtitle
+    if (opts?.player_color) track.player_color = opts.player_color
+    if (opts?.metadata) track.metadata = opts.metadata
+    if (opts?.organization_index) track.organization_index = opts.organization_index
+
+    const payload: Record<string, unknown> = { track }
+    if (collectionId) payload.collection_id = collectionId
+
+    const response = await fetchWithRetry(urlUploadSession, withLocale(locale, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    }))
+
+    const body = await response.json()
+
+    if (!response.ok || !body?.ok) {
+      throw new ApiError(body?.message || 'Failed to create upload session with track', response.status)
+    }
+
+    if (!body.track_id || !body.track_upload?.upload_url) {
+      throw new ApiError('Upload session created but track upload URL was missing', response.status)
+    }
+
+    return body as UploadSessionWithTrackResponse
   })
 }
 

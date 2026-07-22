@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
           input: {
             index: resolve(dir, 'index.html'),
             uploader: resolve(dir, 'uploader.html'),
+            recorder: resolve(dir, 'recorder.html'),
             waveform: resolve(dir, 'waveform.html'),
           }
         }
@@ -37,6 +38,7 @@ export default defineConfig(({ mode }) => {
           index: resolve(dir, 'src', 'index.ts'),
           player: resolve(dir, 'src', 'player.ts'),
           uploader: resolve(dir, 'src', 'uploader.ts'),
+          recorder: resolve(dir, 'src', 'recorder.ts'),
           waveform: resolve(dir, 'src', 'waveform.ts'),
         },
         // ES only: required for code splitting and CDN `type="module"` usage.

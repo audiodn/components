@@ -3,11 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Uploader — ADN Components</title>
+  <title>Recorder — ADN Components</title>
   <link href="https://cdn.jsdelivr.net/npm/vuetify@3/dist/vuetify.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7/css/materialdesignicons.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/src/dev-shared.css">
+  <style>
+    .recorder-wrap {
+      max-width: 360px;
+      margin: 0 auto;
+    }
+  </style>
 </head>
 <body>
 
@@ -21,8 +27,8 @@
     <v-navigation-drawer v-model="drawer" :permanent="lgAndUp" color="surface">
       <v-list nav density="compact">
         <v-list-item prepend-icon="mdi-play-circle-outline" title="Player" href="/"></v-list-item>
-        <v-list-item prepend-icon="mdi-upload-outline" title="Uploader" href="/uploader.html" :active="true"></v-list-item>
-        <v-list-item prepend-icon="mdi-microphone" title="Recorder" href="/recorder.html"></v-list-item>
+        <v-list-item prepend-icon="mdi-upload-outline" title="Uploader" href="/uploader.html"></v-list-item>
+        <v-list-item prepend-icon="mdi-microphone" title="Recorder" href="/recorder.html" :active="true"></v-list-item>
         <v-list-item prepend-icon="mdi-waveform" title="Waveform" href="/waveform.html"></v-list-item>
       </v-list>
 
@@ -30,71 +36,82 @@
 
       <v-list nav density="compact" class="text-caption">
         <v-list-subheader>On this page</v-list-subheader>
-        <v-list-item title="Default" href="#uploader-default" :active="activeSection === 'uploader-default'"></v-list-item>
-        <v-list-item title="Themes" href="#uploader-themes" :active="activeSection === 'uploader-themes'"></v-list-item>
+        <v-list-item title="Default" href="#recorder-default" :active="activeSection === 'recorder-default'"></v-list-item>
+        <v-list-item title="Locale" href="#recorder-locale" :active="activeSection === 'recorder-locale'"></v-list-item>
+        <v-list-item title="Themes" href="#recorder-themes" :active="activeSection === 'recorder-themes'"></v-list-item>
       </v-list>
     </v-navigation-drawer>
 
     <v-main>
       <div class="page-content">
         <div class="page-header">
-          <h1>Uploader</h1>
-          <p>Drag-and-drop file uploader with progress tracking and theme support.</p>
+          <h1>Recorder</h1>
+          <p>Voice recorder with preview, waveform, and single-track upload to AudioDN.</p>
         </div>
 
-        <section id="uploader-default">
+        <section id="recorder-default">
           <h2>Default</h2>
-          <p class="desc">Drag-and-drop file uploader with progress tracking. Requires an API key + collection ID.</p>
+          <p class="desc">Tap the mic to start a 3‑2‑1 countdown, then it records; tap again to stop, then preview and confirm. Requires an API key + collection ID.</p>
 
-          <div class="uploader-wrap">
-            <audiodn-uploader
+          <div class="recorder-wrap">
+            <audiodn-recorder
               api-key="%VITE_DEMO_UPLOADER_API_KEY%"
               collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
-            ></audiodn-uploader>
+              accent-color="#7c3aed"
+              theme="light"
+            ></audiodn-recorder>
           </div>
-          <div class="code-block"><pre><code class="language-html">&lt;audiodn-uploader
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-recorder
   api-key="YOUR_API_KEY"
   collection-id="COLLECTION_ID"
-&gt;&lt;/audiodn-uploader&gt;</code></pre></div>
+  accent-color="#7c3aed"
+  theme="light"
+  countdown="3"
+&gt;&lt;/audiodn-recorder&gt;</code></pre></div>
         </section>
 
-        <section id="uploader-themes">
-          <h2>Themes</h2>
-          <p class="desc">Override CSS custom properties on the host to restyle the uploader. Uses the same <code>--adn-*</code> API as the player.</p>
+        <section id="recorder-locale">
+          <h2>Locale</h2>
+          <p class="desc">Same <code>locale</code> attribute as the player and uploader (<code>en</code>, <code>fr</code>, <code>es</code>, <code>de</code>). Listen for <code>file-uploaded</code> when the PUT completes.</p>
 
-          <div class="variant-label">Light / Dark (system preference)</div>
-          <div class="uploader-wrap">
-            <audiodn-uploader
-              class="theme-uploader-lightdark"
+          <div class="recorder-wrap">
+            <audiodn-recorder
               api-key="%VITE_DEMO_UPLOADER_API_KEY%"
               collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
-            ></audiodn-uploader>
+              accent-color="#7c3aed"
+              theme="light"
+              locale="fr"
+              countdown="2"
+            ></audiodn-recorder>
           </div>
-          <div class="code-block"><pre><code class="language-css">.theme-uploader-lightdark {
-  --adn-main-border: 1px solid light-dark(#ccc, #444);
-  --adn-bg: light-dark(#fff, #111);
-  --adn-bg-light: light-dark(#eee, #222);
-  --adn-color-font: light-dark(#222, #eee);
-  --adn-color-font-muted: light-dark(#666, #aaa);
-  --adn-color-accent: light-dark(#0066cc, #4da6ff);
-  --adn-color-accent-alt: light-dark(#fff, #111);
-  --adn-border-color: light-dark(#ccc, #444);
-  --adn-radius: 6px;
-}</code></pre><pre><code class="language-html">&lt;audiodn-uploader
-  class="theme-uploader-lightdark"
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-recorder
   api-key="YOUR_API_KEY"
   collection-id="COLLECTION_ID"
-&gt;&lt;/audiodn-uploader&gt;</code></pre></div>
+  locale="fr"
+  countdown="2"
+&gt;&lt;/audiodn-recorder&gt;
+
+&lt;script type="module"&gt;
+  document.querySelector('audiodn-recorder')
+    .addEventListener('file-uploaded', (e) =&gt; {
+      console.log(e.detail.trackId, e.detail.fileName)
+    })
+&lt;/script&gt;</code></pre></div>
+        </section>
+
+        <section id="recorder-themes">
+          <h2>Themes</h2>
+          <p class="desc">Override CSS custom properties on the host to restyle the recorder. Uses the same <code>--adn-*</code> API as the uploader.</p>
 
           <div class="variant-label">Midnight</div>
-          <div class="uploader-wrap">
-            <audiodn-uploader
-              class="theme-uploader-midnight"
+          <div class="recorder-wrap">
+            <audiodn-recorder
+              class="theme-recorder-midnight"
               api-key="%VITE_DEMO_UPLOADER_API_KEY%"
               collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
-            ></audiodn-uploader>
+            ></audiodn-recorder>
           </div>
-          <div class="code-block"><pre><code class="language-css">.theme-uploader-midnight {
+          <div class="code-block"><pre><code class="language-css">.theme-recorder-midnight {
   --adn-bg: #1a1a2e;
   --adn-bg-light: #2a2a4e;
   --adn-color-font: #e0e0e0;
@@ -104,14 +121,14 @@
   --adn-color-accent-alt: #fff;
   --adn-border-color: #3a3a5e;
   --adn-color-highlight: rgba(124, 58, 237, 0.12);
-  --adn-radius: 12px;
+  --adn-radius: 16px;
   --adn-main-border: 1px solid #3a3a5e;
   --adn-box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-}</code></pre><pre><code class="language-html">&lt;audiodn-uploader
-  class="theme-uploader-midnight"
+}</code></pre><pre><code class="language-html">&lt;audiodn-recorder
+  class="theme-recorder-midnight"
   api-key="YOUR_API_KEY"
   collection-id="COLLECTION_ID"
-&gt;&lt;/audiodn-uploader&gt;</code></pre></div>
+&gt;&lt;/audiodn-recorder&gt;</code></pre></div>
         </section>
       </div>
     </v-main>
@@ -146,7 +163,7 @@
   }).use(vuetify).mount('#app')
 </script>
 <script type="module">
-  import './src/uploader.ts'
+  import './src/recorder.ts'
 </script>
 </body>
 </html>

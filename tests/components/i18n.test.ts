@@ -5,6 +5,7 @@ import { AudioDnTrackTitle } from '../../src/components/track-title'
 import { AudioDnVolumeControl } from '../../src/components/volume-control'
 import { AudioDnNotification } from '../../src/components/notification'
 import { AudiodnUploader } from '../../src/uploader'
+import { AudiodnRecorder } from '../../src/recorder'
 
 describe('i18n — play-button aria labels', () => {
   it('localizes the play/pause/retry/loading labels', async () => {
@@ -127,5 +128,50 @@ describe('i18n — uploader', () => {
 
     const loading = el.shadowRoot?.querySelector('.uploader-loading')
     expect(loading?.getAttribute('aria-label')).toBe('Chargement du téléverseur')
+  })
+})
+
+describe('i18n — recorder', () => {
+  let el: AudiodnRecorder
+
+  beforeEach(async () => {
+    // api-key path: loadSession short-circuits without network.
+    el = await fixture(html`<audiodn-recorder api-key="key-1" collection-id="col-1" locale="fr"></audiodn-recorder>`)
+    await el.updateComplete
+  })
+
+  it('localizes the idle chrome', async () => {
+    const region = el.shadowRoot?.querySelector('.recorder-panel')
+    expect(region?.getAttribute('aria-label')).toBe('Enregistreur vocal')
+
+    const start = el.shadowRoot?.querySelector('.recorder-mic-button')
+    expect(start?.getAttribute('aria-label')).toBe('Démarrer l’enregistrement')
+
+    const hint = el.shadowRoot?.querySelector('.recorder-hint')
+    expect(hint?.textContent?.trim()).toBe('Appuyez pour enregistrer')
+  })
+
+  it('localizes the countdown hint', async () => {
+    el.mode = 'countdown'
+    el.countdownValue = 2
+    await el.updateComplete
+
+    const hint = el.shadowRoot?.querySelector('.recorder-hint')
+    expect(hint?.textContent?.trim()).toBe('Préparez-vous…')
+
+    const btn = el.shadowRoot?.querySelector('.recorder-mic-button')
+    expect(btn?.getAttribute('aria-label')).toBe('Annuler le compte à rebours')
+  })
+
+  it('shows server error text verbatim while localizing the retry button', async () => {
+    const serverError = 'Upload session rejected (server said so)'
+    el.error = serverError
+    await el.updateComplete
+
+    const text = el.shadowRoot?.querySelector('.recorder-error-text')
+    expect(text?.textContent?.trim()).toBe(serverError)
+
+    const button = el.shadowRoot?.querySelector('.recorder-text-button')
+    expect(button?.textContent?.trim()).toBe('Réessayer')
   })
 })

@@ -210,3 +210,18 @@ section > p.desc {
   --adn-main-border: 1px solid #3a3a5e;
   --adn-box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
+
+.theme-recorder-midnight {
+  --adn-bg: #1a1a2e;
+  --adn-bg-light: #2a2a4e;
+  --adn-color-font: #e0e0e0;
+  --adn-color-font-muted: #8888aa;
+  --adn-color-accent: #7c3aed;
+  --adn-color-accent-rgb: 124, 58, 237;
+  --adn-color-accent-alt: #fff;
+  --adn-border-color: #3a3a5e;
+  --adn-color-highlight: rgba(124, 58, 237, 0.12);
+  --adn-radius: 16px;
+  --adn-main-border: 1px solid #3a3a5e;
+  --adn-box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
