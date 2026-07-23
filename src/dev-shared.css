@@ -181,6 +181,20 @@ section > p.desc {
   --adn-playbutton-radius: 4px;
 }
 
+.theme-recorder-mint {
+  --adn-bg: #134e4a;
+  --adn-bg-light: #115e59;
+  --adn-color-font: #f0fdfa;
+  --adn-color-font-muted: #99f6e4;
+  --adn-color-accent: #2dd4bf;
+  --adn-color-accent-rgb: 45, 212, 191;
+  --adn-color-accent-alt: #042f2e;
+  --adn-border-color: #0f766e;
+  --adn-color-highlight: rgba(45, 212, 191, 0.16);
+  --adn-main-border: 1px solid #0f766e;
+  --adn-box-shadow: 0 2px 12px rgba(45, 212, 191, 0.2);
+}
+
 /* ── Uploader themes ── */
 .theme-uploader-lightdark {
   --adn-main-border: 1px solid light-dark(#ccc, #444);

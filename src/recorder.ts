@@ -528,7 +528,7 @@ export class AudiodnRecorder extends LitElement {
   /** Square button edge (px) for the tiny variant, clamped to a sane minimum. */
   tinyButtonSize (): number {
     const n = Number(this.height)
-    return Number.isFinite(n) && n > 0 ? Math.max(32, n) : 56
+    return Number.isFinite(n) && n > 0 ? Math.max(24, n) : 56
   }
 
   /** True when more than one mic is available and we are idle (picker is interactive). */
@@ -536,9 +536,11 @@ export class AudiodnRecorder extends LitElement {
     return this._audioInputs.length > 1 && this.mode === 'idle' && !this.disabled
   }
 
-  /** True when the tiny variant shows its contextual (preview/delete) menu. */
+  /** True when the tiny variant shows its contextual menu (preview or upload). */
   showContextMenu (): boolean {
-    return this.isTiny() && this.mode === 'preview' && !this.disabled
+    return this.isTiny() &&
+      (this.mode === 'preview' || this.mode === 'uploading') &&
+      !this.disabled
   }
 
   /** Any state in which the popover menu is allowed to open. */
@@ -556,6 +558,12 @@ export class AudiodnRecorder extends LitElement {
   menuDelete () {
     this.closeDeviceMenu()
     this.discardRecording()
+  }
+
+  /** Close the menu, then cancel the in-flight upload (tiny contextual action). */
+  menuCancelUpload () {
+    this.closeDeviceMenu()
+    this.cancelUpload()
   }
 
   deviceLabel (device: { deviceId: string; label: string }, index: number): string {
@@ -1389,7 +1397,7 @@ function template (this: AudiodnRecorder) {
 
     ${this.error
       ? html`
-          <div class="recorder-shell recorder-error-state" role="alert">
+          <div class="recorder-shell recorder-error-state ${this.isTiny() ? 'recorder-tiny' : ''}" role="alert">
             <div class="recorder-error-icon">${iconAlert}</div>
             <div class="recorder-error-text">${this.error}</div>
             <button class="recorder-text-button" @click=${() => this.retryLoadSession()}>
@@ -1399,7 +1407,7 @@ function template (this: AudiodnRecorder) {
         `
       : this.isLoading
         ? html`
-            <div class="recorder-shell recorder-loading" role="status" aria-label=${t(this.locale, 'recorder.aria.loading')}>
+            <div class="recorder-shell recorder-loading ${this.isTiny() ? 'recorder-tiny' : ''}" role="status" aria-label=${t(this.locale, 'recorder.aria.loading')}>
               <span class="recorder-loader" aria-hidden="true"></span>
               <span class="sr-only">${t(this.locale, 'recorder.loadingText')}</span>
             </div>
@@ -1653,16 +1661,21 @@ function tinyUploading (this: AudiodnRecorder) {
   return html`
     <div class="recorder-tiny-stage recorder-tiny-uploading">
       <div class="recorder-tiny-buttons">
-        <button
-          class="recorder-tiny-record recorder-tiny-cancel"
+        <div
+          class="recorder-tiny-progress"
           style=${`--_tiny-progress:${pct}`}
-          aria-label=${t(this.locale, 'recorder.aria.cancelUpload')}
-          @click=${() => this.cancelUpload()}
+          role="progressbar"
+          aria-valuenow=${pct}
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuetext="${pct}%"
+          aria-label=${t(this.locale, 'recorder.aria.progress')}
         >
           <span class="recorder-tiny-ring recorder-tiny-ring--progress" aria-hidden="true"></span>
-          <span class="recorder-tiny-icon">${iconStop}</span>
-        </button>
-        ${tinyMenuPlaceholder.call(this)}
+          <span class="recorder-tiny-ring recorder-tiny-ring--spin" aria-hidden="true"></span>
+          <span class="recorder-tiny-progress-label" aria-hidden="true">${pct}%</span>
+        </div>
+        ${contextMenu.call(this)}
       </div>
     </div>
   `
@@ -1670,8 +1683,8 @@ function tinyUploading (this: AudiodnRecorder) {
 
 /**
  * A non-interactive, disabled copy of the menu button. Used in tiny states that
- * have no menu action (uploading, done, error) so the component always keeps its
- * two-button silhouette instead of collapsing to one.
+ * have no menu action (done, error) so the component always keeps its two-button
+ * silhouette instead of collapsing to one.
  */
 function tinyMenuPlaceholder (this: AudiodnRecorder) {
   return html`
@@ -1741,8 +1754,9 @@ function deviceMenu (this: AudiodnRecorder) {
   `
 }
 
-/** Contextual popover for the tiny preview phase: preview + delete. */
+/** Contextual popover for tiny preview (preview/delete) and uploading (stop upload). */
 function contextMenu (this: AudiodnRecorder) {
+  const uploading = this.mode === 'uploading'
   return html`
     <div class="recorder-device ${this._deviceMenuOpen ? 'is-open' : ''}">
       <button
@@ -1765,30 +1779,46 @@ function contextMenu (this: AudiodnRecorder) {
               popover="manual"
               aria-label=${t(this.locale, 'recorder.aria.moreOptions')}
             >
-              <li role="none">
-                <button
-                  type="button"
-                  role="menuitem"
-                  class="recorder-device-option recorder-menu-item"
-                  @click=${() => this.menuTogglePreview()}
-                >
-                  <span class="recorder-menu-item-icon" aria-hidden="true">${this.isPreviewPlaying ? iconPause : iconPlay}</span>
-                  <span class="recorder-device-option-label">${this.isPreviewPlaying
-                    ? t(this.locale, 'recorder.menu.stopPreview')
-                    : t(this.locale, 'recorder.menu.preview')}</span>
-                </button>
-              </li>
-              <li role="none">
-                <button
-                  type="button"
-                  role="menuitem"
-                  class="recorder-device-option recorder-menu-item recorder-menu-item--danger"
-                  @click=${() => this.menuDelete()}
-                >
-                  <span class="recorder-menu-item-icon" aria-hidden="true">${iconTrash}</span>
-                  <span class="recorder-device-option-label">${t(this.locale, 'recorder.menu.delete')}</span>
-                </button>
-              </li>
+              ${uploading
+                ? html`
+                    <li role="none">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="recorder-device-option recorder-menu-item recorder-menu-item--danger"
+                        @click=${() => this.menuCancelUpload()}
+                      >
+                        <span class="recorder-menu-item-icon" aria-hidden="true">${iconStop}</span>
+                        <span class="recorder-device-option-label">${t(this.locale, 'recorder.menu.stopUpload')}</span>
+                      </button>
+                    </li>
+                  `
+                : html`
+                    <li role="none">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="recorder-device-option recorder-menu-item"
+                        @click=${() => this.menuTogglePreview()}
+                      >
+                        <span class="recorder-menu-item-icon" aria-hidden="true">${this.isPreviewPlaying ? iconPause : iconPlay}</span>
+                        <span class="recorder-device-option-label">${this.isPreviewPlaying
+                          ? t(this.locale, 'recorder.menu.stopPreview')
+                          : t(this.locale, 'recorder.menu.preview')}</span>
+                      </button>
+                    </li>
+                    <li role="none">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="recorder-device-option recorder-menu-item recorder-menu-item--danger"
+                        @click=${() => this.menuDelete()}
+                      >
+                        <span class="recorder-menu-item-icon" aria-hidden="true">${iconTrash}</span>
+                        <span class="recorder-device-option-label">${t(this.locale, 'recorder.menu.delete')}</span>
+                      </button>
+                    </li>
+                  `}
             </ul>
           `
         : ''}
@@ -2318,12 +2348,24 @@ function styles ({
     /* Tiny variant                                                     */
     /* ---------------------------------------------------------------- */
 
+    /* Tiny pill chrome lives on the INNER .recorder-tiny shell, not on :host.
+       Page-level resets (e.g. Vuetify * { padding: 0 }) style the host from
+       outside the shadow tree and can wipe :host padding — which is why the
+       components demoserver looked flush while the docs site (no such reset)
+       showed the intended inset. */
     :host([variant="tiny"]) {
       --_shell-min-height: 0px;
       --_tiny-size: 56px;
-      /* Pill background that matches the circular buttons, with small padding. */
-      padding: var(--adn-padding, calc(var(--_tiny-size) * 0.18));
-      border-radius: 999px;
+      --_tiny-pad: var(--adn-tiny-padding, calc(var(--_tiny-size) * 0.09));
+      /* Icons keep the normal ratios at 40px+. Below that, boost glyph size so
+         very small buttons (e.g. height=28) stay readable. */
+      --_tiny-icon: calc(var(--_tiny-size) * 0.42 + max(0px, (40px - var(--_tiny-size)) * 0.3));
+      --_tiny-icon-sm: calc(var(--_tiny-size) * 0.34 + max(0px, (40px - var(--_tiny-size)) * 0.25));
+      --_tiny-label: calc(var(--_tiny-size) * 0.28 + max(0px, (40px - var(--_tiny-size)) * 0.2));
+      padding: 0;
+      background: transparent;
+      border: none;
+      box-shadow: none;
       width: max-content;
       max-width: 100%;
       /* The recording indicator lives outside the button, so don't clip it. */
@@ -2333,6 +2375,13 @@ function styles ({
     .recorder-tiny {
       min-height: 0;
       justify-content: center;
+      box-sizing: border-box;
+      padding: var(--_tiny-pad);
+      border-radius: 999px;
+      background: var(--_bg);
+      color: var(--_color-font);
+      border: var(--adn-main-border);
+      box-shadow: var(--adn-box-shadow);
     }
 
     .recorder-tiny-stage {
@@ -2349,8 +2398,10 @@ function styles ({
       gap: calc(var(--_tiny-size) * 0.5);
     }
 
-    /* Every tiny button is the same square size (width == height). */
+    /* Every tiny control is the same square size (width == height) so the
+       pill never changes dimensions across idle / preview / uploading / done. */
     .recorder-tiny-record,
+    .recorder-tiny-progress,
     .recorder-tiny .recorder-device-button {
       position: relative;
       width: var(--_tiny-size);
@@ -2366,6 +2417,7 @@ function styles ({
       padding: 0;
       touch-action: none;
       flex: 0 0 auto;
+      box-sizing: border-box;
     }
 
     .recorder-tiny-record {
@@ -2389,16 +2441,16 @@ function styles ({
     }
 
     .recorder-tiny .recorder-device-icon {
-      width: calc(var(--_tiny-size) * 0.34);
-      height: calc(var(--_tiny-size) * 0.34);
+      width: var(--_tiny-icon-sm);
+      height: var(--_tiny-icon-sm);
     }
 
     .recorder-tiny-icon {
       position: relative;
       z-index: 1;
       display: inline-flex;
-      width: calc(var(--_tiny-size) * 0.42);
-      height: calc(var(--_tiny-size) * 0.42);
+      width: var(--_tiny-icon);
+      height: var(--_tiny-icon);
     }
 
     .recorder-tiny-icon svg {
@@ -2409,7 +2461,7 @@ function styles ({
     .recorder-tiny-count {
       position: relative;
       z-index: 1;
-      font-size: calc(var(--_tiny-size) * 0.42);
+      font-size: var(--_tiny-icon);
       font-weight: 700;
       line-height: 1;
       font-variant-numeric: tabular-nums;
@@ -2448,22 +2500,51 @@ function styles ({
       color: var(--_color-accent-alt);
     }
 
-    .recorder-tiny-cancel {
-      background: var(--_color-error);
-      color: #fff;
+    /* Upload progress: same footprint as the record/confirm button. Cancel lives in the menu. */
+    .recorder-tiny-progress {
+      background: var(--_bg-light);
+      color: var(--_color-font);
+      cursor: default;
+      pointer-events: none;
     }
 
-    /* Determinate progress ring around the upload cancel button. */
+    .recorder-tiny-progress-label {
+      position: relative;
+      z-index: 1;
+      font-size: var(--_tiny-label);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
+    /* Determinate progress ring drawn inside the exact button bounds. */
     .recorder-tiny-ring--progress {
       opacity: 1;
-      inset: -4px;
+      inset: 0;
       background: conic-gradient(
-        #fff calc(var(--_tiny-progress, 0) * 1%),
-        rgba(255, 255, 255, 0.25) 0
+        var(--_color-accent) calc(var(--_tiny-progress, 0) * 1%),
+        color-mix(in srgb, var(--_color-font) 18%, transparent) 0
       );
-      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
-      mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
       animation: none;
+    }
+
+    /* Indeterminate spin around the percentage (same footprint — no size change). */
+    .recorder-tiny-ring--spin {
+      opacity: 1;
+      inset: 0;
+      background: conic-gradient(
+        from 0deg,
+        transparent 0deg,
+        transparent 280deg,
+        color-mix(in srgb, var(--_color-accent) 35%, transparent) 300deg,
+        var(--_color-accent-alt, #fff) 340deg,
+        transparent 360deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+      animation: adn-ring-spin 1s linear infinite;
     }
 
     .recorder-tiny-check {
@@ -2479,8 +2560,8 @@ function styles ({
     }
 
     .recorder-tiny-check svg {
-      width: calc(var(--_tiny-size) * 0.42);
-      height: calc(var(--_tiny-size) * 0.42);
+      width: var(--_tiny-icon);
+      height: var(--_tiny-icon);
     }
 
     .recorder-tiny-warn {
@@ -2540,6 +2621,10 @@ function styles ({
       100% { transform: scale(1.45); opacity: 0; }
     }
 
+    @keyframes adn-ring-spin {
+      to { transform: rotate(360deg); }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .recorder-loader { animation-duration: 1.6s; }
       .recorder-mic-button:hover:not(:disabled) { transform: none; }
@@ -2549,6 +2634,7 @@ function styles ({
       .recorder-tiny-record:hover:not(:disabled) { transform: none; }
       .recorder-tiny-record.is-recording .recorder-tiny-ring { animation: none; }
       .recorder-tiny-record.is-counting .recorder-tiny-ring { animation: none; }
+      .recorder-tiny-ring--spin { animation: none; opacity: 0; }
     }
   `
 }

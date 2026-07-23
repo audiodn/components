@@ -94,6 +94,7 @@ export type MessageKey =
   | 'recorder.menu.preview'
   | 'recorder.menu.stopPreview'
   | 'recorder.menu.delete'
+  | 'recorder.menu.stopUpload'
 
 type Messages = Record<MessageKey, string>
 
@@ -178,6 +179,7 @@ const en: Messages = {
   'recorder.menu.preview': 'Preview',
   'recorder.menu.stopPreview': 'Stop preview',
   'recorder.menu.delete': 'Delete',
+  'recorder.menu.stopUpload': 'Stop upload',
   'recorder.aria.cancelUpload': 'Cancel upload',
   'recorder.aria.play': 'Play recording',
   'recorder.aria.pausePreview': 'Pause playback',
@@ -267,6 +269,7 @@ const fr: Messages = {
   'recorder.menu.preview': 'Écouter',
   'recorder.menu.stopPreview': 'Arrêter l’écoute',
   'recorder.menu.delete': 'Supprimer',
+  'recorder.menu.stopUpload': 'Arrêter l’envoi',
   'recorder.aria.cancelUpload': 'Annuler le téléversement',
   'recorder.aria.play': 'Lire l’enregistrement',
   'recorder.aria.pausePreview': 'Mettre la lecture en pause',
@@ -356,6 +359,7 @@ const es: Messages = {
   'recorder.menu.preview': 'Escuchar',
   'recorder.menu.stopPreview': 'Detener escucha',
   'recorder.menu.delete': 'Eliminar',
+  'recorder.menu.stopUpload': 'Detener subida',
   'recorder.aria.cancelUpload': 'Cancelar subida',
   'recorder.aria.play': 'Reproducir grabación',
   'recorder.aria.pausePreview': 'Pausar reproducción',
@@ -445,6 +449,7 @@ const de: Messages = {
   'recorder.menu.preview': 'Anhören',
   'recorder.menu.stopPreview': 'Anhören stoppen',
   'recorder.menu.delete': 'Löschen',
+  'recorder.menu.stopUpload': 'Upload stoppen',
   'recorder.aria.cancelUpload': 'Upload abbrechen',
   'recorder.aria.play': 'Aufnahme abspielen',
   'recorder.aria.pausePreview': 'Wiedergabe pausieren',

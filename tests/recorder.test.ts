@@ -670,7 +670,7 @@ describe('AudiodnRecorder', () => {
 
     it('clamps a too-small height to a usable minimum', async () => {
       await createRecorder({ 'api-key': 'key-1', variant: 'tiny', height: '4' })
-      expect(element.tinyButtonSize()).toBe(32)
+      expect(element.tinyButtonSize()).toBe(24)
     })
 
     it('marks the record button as recording (border animation hook)', async () => {
@@ -758,12 +758,20 @@ describe('AudiodnRecorder', () => {
       await element.updateComplete
       expect(element.mode).toBe('uploading')
 
-      // Two-button silhouette is preserved: cancel + a disabled menu placeholder.
+      // Two-button silhouette: circular progress + an enabled contextual menu.
+      expect(element.shadowRoot?.querySelector('.recorder-tiny-progress')).to.exist
+      expect(element.shadowRoot?.querySelector('.recorder-tiny-cancel')).to.not.exist
       const uploadingButtons = element.shadowRoot?.querySelectorAll('.recorder-tiny-buttons > *')
       expect(uploadingButtons?.length).toBe(2)
-      const placeholder = element.shadowRoot?.querySelector('.recorder-tiny-cancel')
-        ?.parentElement?.querySelector('.recorder-device-button') as HTMLButtonElement
-      expect(placeholder?.disabled).toBe(true)
+      const menu = element.shadowRoot?.querySelector('.recorder-menu-trigger') as HTMLButtonElement
+      expect(menu?.disabled).toBe(false)
+
+      await element.toggleDeviceMenu()
+      await element.updateComplete
+      await Promise.resolve()
+      const items = element.shadowRoot?.querySelectorAll('.recorder-menu-item')
+      expect(items?.length).toBe(1)
+      expect(items?.[0].textContent).to.include('Stop upload')
     })
 
     it('keeps two buttons in the done state (disabled menu placeholder)', async () => {

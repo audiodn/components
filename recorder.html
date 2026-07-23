@@ -78,27 +78,44 @@
           <div class="recorder-wrap" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;justify-content:center;">
             <audiodn-recorder
               variant="tiny"
+              height="28"
               api-key="%VITE_DEMO_UPLOADER_API_KEY%"
               collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
-              accent-color="#7c3aed"
               theme="light"
+            ></audiodn-recorder>
+            <audiodn-recorder
+              class="theme-recorder-mint"
+              variant="tiny"
+              height="56"
+              accent-color="#2dd4bf"
+              api-key="%VITE_DEMO_UPLOADER_API_KEY%"
+              collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
             ></audiodn-recorder>
             <audiodn-recorder
               variant="tiny"
               height="72"
               api-key="%VITE_DEMO_UPLOADER_API_KEY%"
               collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
-              accent-color="#0ea5e9"
               theme="dark"
             ></audiodn-recorder>
           </div>
-          <div class="code-block"><pre><code class="language-html">&lt;audiodn-recorder
+          <div class="code-block"><pre><code class="language-css">.theme-recorder-mint {
+  --adn-bg: #134e4a;
+  --adn-bg-light: #115e59;
+  --adn-color-font: #f0fdfa;
+  --adn-color-font-muted: #99f6e4;
+  --adn-color-accent: #2dd4bf;
+  --adn-color-accent-rgb: 45, 212, 191;
+  --adn-color-accent-alt: #042f2e;
+  --adn-border-color: #0f766e;
+  --adn-main-border: 1px solid #0f766e;
+}</code></pre><pre><code class="language-html">&lt;audiodn-recorder
+  class="theme-recorder-mint"
   variant="tiny"
   height="56"
+  accent-color="#2dd4bf"
   api-key="YOUR_API_KEY"
   collection-id="COLLECTION_ID"
-  accent-color="#7c3aed"
-  theme="light"
 &gt;&lt;/audiodn-recorder&gt;</code></pre></div>
         </section>
 
