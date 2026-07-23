@@ -76,7 +76,7 @@ function placeholderTemplate (locale: Locale): TemplateResult {
 function imageTemplate (
   data: CoverImageSize,
   locale: Locale,
-  onError: (e: Event) => void,
+  onError: (e: Event) => void
 ): TemplateResult {
   return html`
     <img

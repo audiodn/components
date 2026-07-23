@@ -229,7 +229,8 @@ You must provide **either** `api-key` **or** `upload-session-id`.
 | `max-duration` | number | `0` | Max recording length in seconds. `0` = unlimited. |
 | `countdown` | number | `3` | Pre-record countdown length (`3` → 3‑2‑1). `0` skips the countdown and starts immediately. |
 | `auto-hide` | boolean | `false` | After a successful upload, sets the host to `display: none`. |
-| `variant` | string | `panel` | Layout preset. Currently only `panel`. |
+| `variant` | string | `panel` | Layout preset. `panel` (a.k.a. `regular`) is the full panel with waveform, timers, and separate controls. `tiny` is a compact two-button layout: a record button (with a source menu when more than one mic is available) that animates while recording, then a confirm button plus a contextual preview/delete menu. |
+| `height` | number | `56` | `tiny` variant only. Edge size (px) of the square icon buttons; all tiny buttons share this size. |
 
 ### Events
 

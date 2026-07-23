@@ -635,6 +635,150 @@ describe('AudiodnRecorder', () => {
     })
   })
 
+  describe('Tiny variant', () => {
+    it('always shows two buttons; source button is disabled with one input', async () => {
+      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+      expect(element.isTiny()).toBe(true)
+      expect(element.shadowRoot?.querySelector('.recorder-tiny-record')).to.exist
+      // Regular panel layout should not be used.
+      expect(element.shadowRoot?.querySelector('.recorder-mic-button')).to.not.exist
+      // The source button is present (never hidden) but disabled with one input.
+      const source = element.shadowRoot?.querySelector('.recorder-device-button') as HTMLButtonElement
+      expect(source).to.exist
+      expect(source.disabled).toBe(true)
+    })
+
+    it('enables the source menu button when multiple inputs exist', async () => {
+      vi.mocked(navigator.mediaDevices.enumerateDevices).mockResolvedValue([
+        { deviceId: 'mic-1', kind: 'audioinput', label: 'Built-in Mic', groupId: 'g1' } as MediaDeviceInfo,
+        { deviceId: 'mic-2', kind: 'audioinput', label: 'USB Mic', groupId: 'g2' } as MediaDeviceInfo,
+      ])
+      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+      await element.refreshAudioInputs()
+      await element.updateComplete
+      const source = element.shadowRoot?.querySelector('.recorder-device-button') as HTMLButtonElement
+      expect(source).to.exist
+      expect(source.disabled).toBe(false)
+    })
+
+    it('applies the height parameter as the square button size', async () => {
+      await createRecorder({ 'api-key': 'key-1', variant: 'tiny', height: '72' })
+      expect(element.tinyButtonSize()).toBe(72)
+      // Published on the host so padding, gap, and buttons all scale together.
+      expect(element.style.getPropertyValue('--_tiny-size')).toBe('72px')
+    })
+
+    it('clamps a too-small height to a usable minimum', async () => {
+      await createRecorder({ 'api-key': 'key-1', variant: 'tiny', height: '4' })
+      expect(element.tinyButtonSize()).toBe(32)
+    })
+
+    it('marks the record button as recording (border animation hook)', async () => {
+      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+      await element.startRecording()
+      await element.updateComplete
+      expect(element.mode).toBe('recording')
+      expect(element.shadowRoot?.querySelector('.recorder-tiny-record.is-recording')).to.exist
+    })
+
+    it('shows a confirm button and contextual menu in preview', async () => {
+      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+      await element.startRecording()
+      element.stopRecording()
+      await element.updateComplete
+      await Promise.resolve()
+      await element.updateComplete
+
+      expect(element.mode).toBe('preview')
+      expect(element.shadowRoot?.querySelector('.recorder-tiny-confirm')).to.exist
+      const trigger = element.shadowRoot?.querySelector('.recorder-menu-trigger')
+      expect(trigger).to.exist
+
+      await element.toggleDeviceMenu()
+      await element.updateComplete
+      await Promise.resolve()
+      const items = element.shadowRoot?.querySelectorAll('.recorder-menu-item')
+      expect(items?.length).toBe(2)
+      expect(items?.[0].textContent).to.include('Preview')
+      expect(items?.[1].textContent).to.include('Delete')
+    })
+
+    it('does not render the notification banner (too small in tiny)', async () => {
+      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+      expect(element.shadowRoot?.querySelector('audiodn-notification')).to.not.exist
+    })
+
+    it('shows a red warning glyph when an upload fails', async () => {
+      mockCreateUploadSessionWithTrack.mockRejectedValue(new Error('boom'))
+      await createRecorder({ 'api-key': 'key-1', 'collection-id': 'col-1', variant: 'tiny' })
+      await element.startRecording()
+      element.stopRecording()
+      await element.updateComplete
+      await Promise.resolve()
+      await element.updateComplete
+
+      await element.sendRecording()
+      await element.updateComplete
+
+      expect(element._tinyError).toBe(true)
+      expect(element.shadowRoot?.querySelector('.recorder-tiny-warn')).to.exist
+    })
+
+    it('discards from the contextual menu', async () => {
+      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+      await element.startRecording()
+      element.stopRecording()
+      await element.updateComplete
+      await Promise.resolve()
+      await element.updateComplete
+
+      element.menuDelete()
+      await element.updateComplete
+      expect(element.mode).toBe('idle')
+      expect(element._deviceMenuOpen).toBe(false)
+    })
+
+    it('confirms (uploads) from the tiny confirm button', async () => {
+      mockCreateUploadSessionWithTrack.mockResolvedValue({
+        ...mockSessionData,
+        track_id: 'track-1',
+        track_upload: { upload_url: 'https://cdn.test/put' },
+      })
+      await createRecorder({ 'api-key': 'key-1', 'collection-id': 'col-1', variant: 'tiny' })
+      await element.startRecording()
+      element.stopRecording()
+      await element.updateComplete
+      await Promise.resolve()
+      await element.updateComplete
+
+      const confirm = element.shadowRoot?.querySelector('.recorder-tiny-confirm') as HTMLButtonElement
+      expect(confirm).to.exist
+      confirm.click()
+      await Promise.resolve()
+      await element.updateComplete
+      expect(element.mode).toBe('uploading')
+
+      // Two-button silhouette is preserved: cancel + a disabled menu placeholder.
+      const uploadingButtons = element.shadowRoot?.querySelectorAll('.recorder-tiny-buttons > *')
+      expect(uploadingButtons?.length).toBe(2)
+      const placeholder = element.shadowRoot?.querySelector('.recorder-tiny-cancel')
+        ?.parentElement?.querySelector('.recorder-device-button') as HTMLButtonElement
+      expect(placeholder?.disabled).toBe(true)
+    })
+
+    it('keeps two buttons in the done state (disabled menu placeholder)', async () => {
+      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+      // Drive straight into the done state.
+      ;(element as unknown as { mode: string }).mode = 'done'
+      await element.updateComplete
+
+      expect(element.shadowRoot?.querySelector('.recorder-tiny-check')).to.exist
+      const menu = element.shadowRoot?.querySelector('.recorder-device-button') as HTMLButtonElement
+      expect(menu).to.exist
+      expect(menu.disabled).toBe(true)
+    })
+  })
+
   describe('Cleanup', () => {
     it('clears the session timer on disconnect', async () => {
       mockGetUploadSession.mockResolvedValue(structuredClone(mockSessionData))

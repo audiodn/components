@@ -37,6 +37,7 @@
       <v-list nav density="compact" class="text-caption">
         <v-list-subheader>On this page</v-list-subheader>
         <v-list-item title="Default" href="#recorder-default" :active="activeSection === 'recorder-default'"></v-list-item>
+        <v-list-item title="Tiny" href="#recorder-tiny" :active="activeSection === 'recorder-tiny'"></v-list-item>
         <v-list-item title="Locale" href="#recorder-locale" :active="activeSection === 'recorder-locale'"></v-list-item>
         <v-list-item title="Themes" href="#recorder-themes" :active="activeSection === 'recorder-themes'"></v-list-item>
       </v-list>
@@ -67,6 +68,37 @@
   accent-color="#7c3aed"
   theme="light"
   countdown="3"
+&gt;&lt;/audiodn-recorder&gt;</code></pre></div>
+        </section>
+
+        <section id="recorder-tiny">
+          <h2>Tiny</h2>
+          <p class="desc">A compact, two-button layout for tight spaces (inline in a comment box, chat, etc.). Idle shows just a record button (plus a source menu when more than one mic is present). Recording animates a ring around the button. Preview collapses to a confirm button and a contextual menu (preview / delete).</p>
+
+          <div class="recorder-wrap" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;justify-content:center;">
+            <audiodn-recorder
+              variant="tiny"
+              api-key="%VITE_DEMO_UPLOADER_API_KEY%"
+              collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
+              accent-color="#7c3aed"
+              theme="light"
+            ></audiodn-recorder>
+            <audiodn-recorder
+              variant="tiny"
+              height="72"
+              api-key="%VITE_DEMO_UPLOADER_API_KEY%"
+              collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
+              accent-color="#0ea5e9"
+              theme="dark"
+            ></audiodn-recorder>
+          </div>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-recorder
+  variant="tiny"
+  height="56"
+  api-key="YOUR_API_KEY"
+  collection-id="COLLECTION_ID"
+  accent-color="#7c3aed"
+  theme="light"
 &gt;&lt;/audiodn-recorder&gt;</code></pre></div>
         </section>
 

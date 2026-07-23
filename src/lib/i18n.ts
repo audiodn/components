@@ -90,6 +90,10 @@ export type MessageKey =
   | 'recorder.aria.selectMic'
   | 'recorder.device.unnamed'
   | 'recorder.device.menuLabel'
+  | 'recorder.aria.moreOptions'
+  | 'recorder.menu.preview'
+  | 'recorder.menu.stopPreview'
+  | 'recorder.menu.delete'
 
 type Messages = Record<MessageKey, string>
 
@@ -170,6 +174,10 @@ const en: Messages = {
   'recorder.aria.selectMic': 'Select microphone',
   'recorder.device.unnamed': 'Microphone {n}',
   'recorder.device.menuLabel': 'Microphones',
+  'recorder.aria.moreOptions': 'More options',
+  'recorder.menu.preview': 'Preview',
+  'recorder.menu.stopPreview': 'Stop preview',
+  'recorder.menu.delete': 'Delete',
   'recorder.aria.cancelUpload': 'Cancel upload',
   'recorder.aria.play': 'Play recording',
   'recorder.aria.pausePreview': 'Pause playback',
@@ -255,6 +263,10 @@ const fr: Messages = {
   'recorder.aria.selectMic': 'Choisir le microphone',
   'recorder.device.unnamed': 'Microphone {n}',
   'recorder.device.menuLabel': 'Microphones',
+  'recorder.aria.moreOptions': 'Plus d’options',
+  'recorder.menu.preview': 'Écouter',
+  'recorder.menu.stopPreview': 'Arrêter l’écoute',
+  'recorder.menu.delete': 'Supprimer',
   'recorder.aria.cancelUpload': 'Annuler le téléversement',
   'recorder.aria.play': 'Lire l’enregistrement',
   'recorder.aria.pausePreview': 'Mettre la lecture en pause',
@@ -340,6 +352,10 @@ const es: Messages = {
   'recorder.aria.selectMic': 'Seleccionar micrófono',
   'recorder.device.unnamed': 'Micrófono {n}',
   'recorder.device.menuLabel': 'Micrófonos',
+  'recorder.aria.moreOptions': 'Más opciones',
+  'recorder.menu.preview': 'Escuchar',
+  'recorder.menu.stopPreview': 'Detener escucha',
+  'recorder.menu.delete': 'Eliminar',
   'recorder.aria.cancelUpload': 'Cancelar subida',
   'recorder.aria.play': 'Reproducir grabación',
   'recorder.aria.pausePreview': 'Pausar reproducción',
@@ -425,6 +441,10 @@ const de: Messages = {
   'recorder.aria.selectMic': 'Mikrofon auswählen',
   'recorder.device.unnamed': 'Mikrofon {n}',
   'recorder.device.menuLabel': 'Mikrofone',
+  'recorder.aria.moreOptions': 'Weitere Optionen',
+  'recorder.menu.preview': 'Anhören',
+  'recorder.menu.stopPreview': 'Anhören stoppen',
+  'recorder.menu.delete': 'Löschen',
   'recorder.aria.cancelUpload': 'Upload abbrechen',
   'recorder.aria.play': 'Aufnahme abspielen',
   'recorder.aria.pausePreview': 'Wiedergabe pausieren',

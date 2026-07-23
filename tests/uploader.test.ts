@@ -187,7 +187,7 @@ describe('AudiodnUploader', () => {
 
       ;(element as any).handleFiles(fileList(
         makeAudioFile('a.mp3'),
-        makeAudioFile('b.mp3'),
+        makeAudioFile('b.mp3')
       ))
       await element.updateComplete
 
