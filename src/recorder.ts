@@ -15,6 +15,7 @@ import {
   iconPlay,
   iconPause,
   iconAlert,
+  iconMoreVertical,
 } from './lib/constants.ts'
 import { globalReset, globalVariables, themePalette } from './global-css.ts'
 import { accentForTheme, isDark as isColorDark, parseHex } from './lib/color.ts'
@@ -143,6 +144,17 @@ export class AudiodnRecorder extends LitElement {
   @state()
   private _fileName: string = ''
 
+  /** Available `audioinput` devices (empty until enumerated). */
+  @state()
+  _audioInputs: Array<{ deviceId: string; label: string }> = []
+
+  /** Selected mic `deviceId`; empty means browser default. */
+  @state()
+  _selectedDeviceId: string = ''
+
+  @state()
+  _deviceMenuOpen: boolean = false
+
   private _mediaStream: MediaStream | null = null
   private _mediaRecorder: MediaRecorder | null = null
   private _chunks: Blob[] = []
@@ -159,6 +171,21 @@ export class AudiodnRecorder extends LitElement {
   private _schemeQuery?: MediaQueryList
   private _onSchemeChange = () => {
     if (this.theme === 'auto') this.applyAccent()
+  }
+  private _onDeviceChange = () => {
+    void this.refreshAudioInputs()
+  }
+  private _onDocPointerDown = (e: Event) => {
+    if (!this._deviceMenuOpen) return
+    const path = typeof e.composedPath === 'function' ? e.composedPath() : []
+    const root = this.shadowRoot
+    const device = root?.querySelector('.recorder-device')
+    const menu = root?.querySelector('.recorder-device-menu')
+    if ((device && path.includes(device)) || (menu && path.includes(menu))) return
+    this.closeDeviceMenu()
+  }
+  private _onRepositionDeviceMenu = () => {
+    this.positionDeviceMenu()
   }
 
   // Live input waveform while recording
@@ -212,9 +239,16 @@ export class AudiodnRecorder extends LitElement {
       this._schemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
       this._schemeQuery.addEventListener('change', this._onSchemeChange)
     }
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', this._onDeviceChange)
+    }
+    if (typeof document !== 'undefined') {
+      document.addEventListener('pointerdown', this._onDocPointerDown, true)
+    }
     if (this.hasAttribute('accent-color')) {
       this.applyAccent()
     }
+    void this.refreshAudioInputs()
     await this.loadSession()
   }
 
@@ -223,6 +257,15 @@ export class AudiodnRecorder extends LitElement {
     this._sessionTimer.clear()
     this._schemeQuery?.removeEventListener('change', this._onSchemeChange)
     this._schemeQuery = undefined
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.removeEventListener) {
+      navigator.mediaDevices.removeEventListener('devicechange', this._onDeviceChange)
+    }
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('pointerdown', this._onDocPointerDown, true)
+    }
+    this._deviceMenuOpen = false
+    this.removeAttribute('data-menu-open')
+    this.unbindDeviceMenuPositioning()
     this.stopLiveLevels()
     this.clearCountdownTimer()
     this.teardownRecording(false)
@@ -366,17 +409,31 @@ export class AudiodnRecorder extends LitElement {
       return false
     }
 
+    const audioConstraint: boolean | MediaTrackConstraints = this._selectedDeviceId
+      ? { deviceId: { exact: this._selectedDeviceId } }
+      : true
+
     try {
-      this._mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      this._mediaStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint })
     } catch (err) {
-      const name = err instanceof DOMException ? err.name : ''
-      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-        this.notify('error', t(this.locale, 'recorder.notify.micDenied'))
+      // Selected device may have been unplugged — retry with the browser default.
+      if (this._selectedDeviceId) {
+        this._selectedDeviceId = ''
+        try {
+          this._mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        } catch (retryErr) {
+          this.reportMicError(retryErr)
+          return false
+        }
       } else {
-        this.notify('error', t(this.locale, 'recorder.notify.micUnavailable'))
+        this.reportMicError(err)
+        return false
       }
-      return false
     }
+
+    const trackDeviceId = this._mediaStream.getAudioTracks?.()[0]?.getSettings?.()?.deviceId
+    if (trackDeviceId) this._selectedDeviceId = trackDeviceId
+    void this.refreshAudioInputs()
 
     const mime = this.pickMimeType()
     this._mimeType = mime || 'audio/webm'
@@ -404,6 +461,137 @@ export class AudiodnRecorder extends LitElement {
     }
 
     return true
+  }
+
+  private reportMicError (err: unknown) {
+    const name = err instanceof DOMException ? err.name : ''
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      this.notify('error', t(this.locale, 'recorder.notify.micDenied'))
+    } else {
+      this.notify('error', t(this.locale, 'recorder.notify.micUnavailable'))
+    }
+  }
+
+  /** Refresh the list of `audioinput` devices. Menu shows only when length > 1. */
+  async refreshAudioInputs () {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const inputs = devices
+        .filter((d) => d.kind === 'audioinput' && d.deviceId)
+        .map((d) => ({ deviceId: d.deviceId, label: d.label || '' }))
+      this._audioInputs = inputs
+      if (inputs.length <= 1) this.closeDeviceMenu()
+      if (this._selectedDeviceId && !inputs.some((d) => d.deviceId === this._selectedDeviceId)) {
+        this._selectedDeviceId = ''
+      }
+    } catch {
+      // Enumeration can fail on locked-down environments; leave the list as-is.
+    }
+  }
+
+  /** True when more than one mic is available and we are idle (picker is interactive). */
+  showDevicePicker (): boolean {
+    return this._audioInputs.length > 1 && this.mode === 'idle' && !this.disabled
+  }
+
+  deviceLabel (device: { deviceId: string; label: string }, index: number): string {
+    if (device.label.trim()) return device.label
+    return t(this.locale, 'recorder.device.unnamed', { n: String(index + 1) })
+  }
+
+  async toggleDeviceMenu (e?: Event) {
+    e?.stopPropagation()
+    e?.preventDefault()
+    if (!this.showDevicePicker()) return
+    if (this._deviceMenuOpen) {
+      this.closeDeviceMenu()
+      return
+    }
+    this._deviceMenuOpen = true
+    this.setAttribute('data-menu-open', '')
+    await this.updateComplete
+    // Let layout settle before measuring, then promote to the top layer when available.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    this.showDeviceMenuPopover()
+    this.positionDeviceMenu()
+    this.bindDeviceMenuPositioning()
+  }
+
+  selectAudioInput (deviceId: string) {
+    this._selectedDeviceId = deviceId
+    this.closeDeviceMenu()
+  }
+
+  closeDeviceMenu () {
+    if (!this._deviceMenuOpen) return
+    this._deviceMenuOpen = false
+    this.removeAttribute('data-menu-open')
+    this.unbindDeviceMenuPositioning()
+    const menu = this.shadowRoot?.querySelector<HTMLElement>('.recorder-device-menu')
+    if (menu && typeof (menu as HTMLElement & { hidePopover?: () => void }).hidePopover === 'function') {
+      try {
+        ;(menu as HTMLElement & { hidePopover: () => void }).hidePopover()
+      } catch {
+        // Already closed / not open as a popover.
+      }
+    }
+  }
+
+  /**
+   * Pin the open menu in the viewport (and prefer the Popover top layer) so it is
+   * not clipped by `:host { overflow: hidden }` or ancestor overflow.
+   */
+  positionDeviceMenu () {
+    const button = this.shadowRoot?.querySelector<HTMLElement>('.recorder-device-button')
+    const menu = this.shadowRoot?.querySelector<HTMLElement>('.recorder-device-menu')
+    if (!button || !menu) return
+
+    menu.style.top = '0px'
+    menu.style.left = '0px'
+    menu.style.bottom = 'auto'
+    menu.style.right = 'auto'
+
+    const rect = button.getBoundingClientRect()
+    const menuRect = menu.getBoundingClientRect()
+    const gap = 8
+    const spaceAbove = rect.top
+    const top = spaceAbove >= menuRect.height + gap
+      ? rect.top - menuRect.height - gap
+      : rect.bottom + gap
+
+    let left = rect.left + rect.width / 2 - menuRect.width / 2
+    const maxLeft = Math.max(8, window.innerWidth - menuRect.width - 8)
+    if (left > maxLeft) left = maxLeft
+    if (left < 8) left = 8
+
+    menu.style.top = `${Math.max(8, top)}px`
+    menu.style.left = `${left}px`
+  }
+
+  private bindDeviceMenuPositioning () {
+    if (typeof window === 'undefined') return
+    window.addEventListener('scroll', this._onRepositionDeviceMenu, true)
+    window.addEventListener('resize', this._onRepositionDeviceMenu)
+  }
+
+  private unbindDeviceMenuPositioning () {
+    if (typeof window === 'undefined') return
+    window.removeEventListener('scroll', this._onRepositionDeviceMenu, true)
+    window.removeEventListener('resize', this._onRepositionDeviceMenu)
+  }
+
+  private showDeviceMenuPopover () {
+    const menu = this.shadowRoot?.querySelector<HTMLElement>('.recorder-device-menu')
+    if (!menu) return
+    const popoverMenu = menu as HTMLElement & { showPopover?: () => void }
+    if (typeof popoverMenu.showPopover === 'function') {
+      try {
+        popoverMenu.showPopover()
+      } catch {
+        // Ignore if already open.
+      }
+    }
   }
 
   /** Starts the already-acquired `MediaRecorder` and enters `recording` mode. */
@@ -1074,6 +1262,7 @@ export class AudiodnRecorder extends LitElement {
 
   handleMicClick () {
     if (this.disabled || this.isLoading || this.error) return
+    this.closeDeviceMenu()
     if (this.mode === 'idle') this.startCountdown().catch(() => undefined)
     else if (this.mode === 'countdown') this.cancelCountdown()
     else if (this.mode === 'recording') this.stopRecording()
@@ -1146,23 +1335,76 @@ function template (this: AudiodnRecorder) {
 function idleOrRecording (this: AudiodnRecorder) {
   const recording = this.mode === 'recording'
   const counting = this.mode === 'countdown'
+  const showDevices = this.showDevicePicker()
   return html`
     <div class="recorder-stage ${recording ? 'is-recording' : ''} ${counting ? 'is-counting' : ''}">
-      <button
-        class="recorder-mic-button ${recording ? 'is-recording' : ''} ${counting ? 'is-counting' : ''}"
-        ?disabled=${this.disabled}
-        aria-label=${recording
-          ? t(this.locale, 'recorder.aria.stop')
-          : counting
-            ? t(this.locale, 'recorder.aria.cancelCountdown')
-            : t(this.locale, 'recorder.aria.start')}
-        @click=${() => this.handleMicClick()}
-      >
-        <span class="recorder-mic-halo" aria-hidden="true"></span>
-        ${counting
-          ? html`<span class="recorder-countdown-number" aria-live="assertive">${this.countdownValue}</span>`
-          : html`<span class="recorder-mic-icon">${recording ? iconStop : iconMic}</span>`}
-      </button>
+      <div class="recorder-mic-row">
+        <div class="recorder-mic-row-side" aria-hidden="true"></div>
+        <button
+          class="recorder-mic-button ${recording ? 'is-recording' : ''} ${counting ? 'is-counting' : ''}"
+          ?disabled=${this.disabled}
+          aria-label=${recording
+            ? t(this.locale, 'recorder.aria.stop')
+            : counting
+              ? t(this.locale, 'recorder.aria.cancelCountdown')
+              : t(this.locale, 'recorder.aria.start')}
+          @click=${() => this.handleMicClick()}
+        >
+          <span class="recorder-mic-halo" aria-hidden="true"></span>
+          ${counting
+            ? html`<span class="recorder-countdown-number" aria-live="assertive">${this.countdownValue}</span>`
+            : html`<span class="recorder-mic-icon">${recording ? iconStop : iconMic}</span>`}
+        </button>
+        <div class="recorder-mic-row-side recorder-mic-row-side--end">
+          ${showDevices
+            ? html`
+                <div class="recorder-device ${this._deviceMenuOpen ? 'is-open' : ''}">
+                  <button
+                    type="button"
+                    class="recorder-device-button"
+                    aria-label=${t(this.locale, 'recorder.aria.selectMic')}
+                    aria-haspopup="listbox"
+                    aria-expanded=${this._deviceMenuOpen ? 'true' : 'false'}
+                    ?disabled=${this.disabled}
+                    @pointerdown=${(e: Event) => e.stopPropagation()}
+                    @click=${(e: Event) => this.toggleDeviceMenu(e)}
+                  >
+                    <span class="recorder-device-icon">${iconMoreVertical}</span>
+                  </button>
+                  ${this._deviceMenuOpen
+                    ? html`
+                        <ul
+                          class="recorder-device-menu"
+                          role="listbox"
+                          popover="manual"
+                          aria-label=${t(this.locale, 'recorder.device.menuLabel')}
+                        >
+                          ${this._audioInputs.map((device, index) => {
+                            const selected = device.deviceId === this._selectedDeviceId
+                              || (!this._selectedDeviceId && index === 0)
+                            return html`
+                              <li role="option" aria-selected=${selected ? 'true' : 'false'}>
+                                <button
+                                  type="button"
+                                  class="recorder-device-option ${selected ? 'is-selected' : ''}"
+                                  @click=${() => this.selectAudioInput(device.deviceId)}
+                                >
+                                  <span class="recorder-device-option-label">${this.deviceLabel(device, index)}</span>
+                                  ${selected
+                                    ? html`<span class="recorder-device-option-check" aria-hidden="true">${iconCheck}</span>`
+                                    : ''}
+                                </button>
+                              </li>
+                            `
+                          })}
+                        </ul>
+                      `
+                    : ''}
+                </div>
+              `
+            : ''}
+        </div>
+      </div>
 
       <div class="recorder-lower-slot">
         ${recording
@@ -1334,6 +1576,10 @@ function styles ({
       box-shadow: var(--adn-box-shadow);
     }
 
+    :host([data-menu-open]) {
+      overflow: visible;
+    }
+
     .recorder-shell {
       display: flex;
       flex-direction: column;
@@ -1406,6 +1652,23 @@ function styles ({
       min-height: 0;
     }
 
+    .recorder-mic-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      width: 100%;
+    }
+
+    .recorder-mic-row-side {
+      min-width: 0;
+    }
+
+    .recorder-mic-row-side--end {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     .recorder-mic-button {
       position: relative;
       width: 88px;
@@ -1421,6 +1684,125 @@ function styles ({
       box-shadow: var(--_control-shadow);
       transition: var(--_transition-fast);
       touch-action: none;
+      justify-self: center;
+    }
+
+    .recorder-device {
+      position: relative;
+      z-index: 2;
+    }
+
+    .recorder-device-button {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--_border-color, rgba(127, 127, 127, 0.35));
+      background: var(--_bg-light);
+      color: var(--_color-font, #eee);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      transition: var(--_transition-fast);
+      padding: 0;
+    }
+
+    .recorder-device-button:hover:not(:disabled) {
+      border-color: var(--_color-accent);
+      color: var(--_color-accent);
+    }
+
+    .recorder-device-button:focus-visible {
+      outline: 2px solid var(--_color-accent);
+      outline-offset: 2px;
+    }
+
+    .recorder-device-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .recorder-device.is-open .recorder-device-button {
+      border-color: var(--_color-accent);
+      color: var(--_color-accent);
+    }
+
+    .recorder-device-icon {
+      display: flex;
+      width: 18px;
+      height: 18px;
+    }
+
+    .recorder-device-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .recorder-device-menu {
+      position: fixed;
+      inset: unset;
+      margin: 0;
+      z-index: 10000;
+      min-width: 200px;
+      max-width: min(280px, 70vw);
+      padding: 6px;
+      list-style: none;
+      border-radius: 10px;
+      border: 1px solid var(--_border-color, rgba(127, 127, 127, 0.35));
+      background: var(--_bg-light);
+      color: var(--_color-font);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .recorder-device-menu:popover-open {
+      display: block;
+    }
+
+    .recorder-device-option {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border: none;
+      background: transparent;
+      color: var(--_color-font, #eee);
+      text-align: left;
+      font: inherit;
+      font-size: 13px;
+      line-height: 1.3;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .recorder-device-option:hover,
+    .recorder-device-option.is-selected {
+      background: color-mix(in srgb, var(--_color-accent) 16%, transparent);
+    }
+
+    .recorder-device-option-label {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .recorder-device-option-check {
+      display: flex;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      color: var(--_color-accent);
+    }
+
+    .recorder-device-option-check svg {
+      width: 100%;
+      height: 100%;
     }
 
     .recorder-mic-button.is-recording {

@@ -149,7 +149,14 @@ Object.defineProperty(navigator, 'mediaDevices', {
   value: {
     getUserMedia: vi.fn(async () => ({
       getTracks: () => [{ stop: vi.fn() }],
+      getAudioTracks: () => [{
+        stop: vi.fn(),
+        getSettings: () => ({}),
+      }],
     })),
+    enumerateDevices: vi.fn(async () => []),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
   },
   writable: true,
   configurable: true,

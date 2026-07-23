@@ -87,6 +87,9 @@ export type MessageKey =
   | 'recorder.timer.preview'
   | 'recorder.idle.hint'
   | 'recorder.countdown.hint'
+  | 'recorder.aria.selectMic'
+  | 'recorder.device.unnamed'
+  | 'recorder.device.menuLabel'
 
 type Messages = Record<MessageKey, string>
 
@@ -164,6 +167,9 @@ const en: Messages = {
   'recorder.aria.cancelCountdown': 'Cancel countdown',
   'recorder.idle.hint': 'Tap to record',
   'recorder.countdown.hint': 'Get ready…',
+  'recorder.aria.selectMic': 'Select microphone',
+  'recorder.device.unnamed': 'Microphone {n}',
+  'recorder.device.menuLabel': 'Microphones',
   'recorder.aria.cancelUpload': 'Cancel upload',
   'recorder.aria.play': 'Play recording',
   'recorder.aria.pausePreview': 'Pause playback',
@@ -246,6 +252,9 @@ const fr: Messages = {
   'recorder.aria.cancelCountdown': 'Annuler le compte à rebours',
   'recorder.idle.hint': 'Appuyez pour enregistrer',
   'recorder.countdown.hint': 'Préparez-vous…',
+  'recorder.aria.selectMic': 'Choisir le microphone',
+  'recorder.device.unnamed': 'Microphone {n}',
+  'recorder.device.menuLabel': 'Microphones',
   'recorder.aria.cancelUpload': 'Annuler le téléversement',
   'recorder.aria.play': 'Lire l’enregistrement',
   'recorder.aria.pausePreview': 'Mettre la lecture en pause',
@@ -328,6 +337,9 @@ const es: Messages = {
   'recorder.aria.cancelCountdown': 'Cancelar cuenta atrás',
   'recorder.idle.hint': 'Toca para grabar',
   'recorder.countdown.hint': 'Prepárate…',
+  'recorder.aria.selectMic': 'Seleccionar micrófono',
+  'recorder.device.unnamed': 'Micrófono {n}',
+  'recorder.device.menuLabel': 'Micrófonos',
   'recorder.aria.cancelUpload': 'Cancelar subida',
   'recorder.aria.play': 'Reproducir grabación',
   'recorder.aria.pausePreview': 'Pausar reproducción',
@@ -410,6 +422,9 @@ const de: Messages = {
   'recorder.aria.cancelCountdown': 'Countdown abbrechen',
   'recorder.idle.hint': 'Tippen zum Aufnehmen',
   'recorder.countdown.hint': 'Bereit machen…',
+  'recorder.aria.selectMic': 'Mikrofon auswählen',
+  'recorder.device.unnamed': 'Mikrofon {n}',
+  'recorder.device.menuLabel': 'Mikrofone',
   'recorder.aria.cancelUpload': 'Upload abbrechen',
   'recorder.aria.play': 'Aufnahme abspielen',
   'recorder.aria.pausePreview': 'Wiedergabe pausieren',

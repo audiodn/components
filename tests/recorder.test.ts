@@ -73,7 +73,9 @@ describe('AudiodnRecorder', () => {
     vi.stubGlobal('XMLHttpRequest', MockXHR as unknown as typeof XMLHttpRequest)
     vi.mocked(navigator.mediaDevices.getUserMedia).mockResolvedValue({
       getTracks: () => [{ stop: vi.fn() }],
+      getAudioTracks: () => [{ stop: vi.fn(), getSettings: () => ({}) }],
     } as unknown as MediaStream)
+    vi.mocked(navigator.mediaDevices.enumerateDevices).mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -201,6 +203,7 @@ describe('AudiodnRecorder', () => {
         const stopTrack = vi.fn()
         vi.mocked(navigator.mediaDevices.getUserMedia).mockResolvedValue({
           getTracks: () => [{ stop: stopTrack }],
+          getAudioTracks: () => [{ stop: stopTrack, getSettings: () => ({}) }],
         } as unknown as MediaStream)
         const discardedSpy = vi.fn()
         element.addEventListener('recording-discarded', discardedSpy)
@@ -568,6 +571,67 @@ describe('AudiodnRecorder', () => {
       await createRecorder()
       const text = element.shadowRoot?.querySelector('.recorder-error-text')
       expect(text?.textContent?.trim()).toBe('Either upload-session-id or api-key must be provided')
+    })
+
+    it('hides the mic device menu when only one audio input exists', async () => {
+      vi.mocked(navigator.mediaDevices.enumerateDevices).mockResolvedValue([
+        { deviceId: 'mic-1', kind: 'audioinput', label: 'Built-in Mic', groupId: 'g1' } as MediaDeviceInfo,
+      ])
+      await createRecorder({ 'api-key': 'key-1' })
+      await element.refreshAudioInputs()
+      await element.updateComplete
+      expect(element.shadowRoot?.querySelector('.recorder-device')).to.not.exist
+    })
+
+    it('shows the mic device menu when multiple audio inputs exist', async () => {
+      vi.mocked(navigator.mediaDevices.enumerateDevices).mockResolvedValue([
+        { deviceId: 'mic-1', kind: 'audioinput', label: 'Built-in Mic', groupId: 'g1' } as MediaDeviceInfo,
+        { deviceId: 'mic-2', kind: 'audioinput', label: 'USB Mic', groupId: 'g2' } as MediaDeviceInfo,
+        { deviceId: 'spk-1', kind: 'audiooutput', label: 'Speakers', groupId: 'g3' } as MediaDeviceInfo,
+      ])
+      await createRecorder({ 'api-key': 'key-1' })
+      await element.refreshAudioInputs()
+      await element.updateComplete
+      expect(element.shadowRoot?.querySelector('.recorder-device-button')).to.exist
+      expect(element.shadowRoot?.querySelector('.recorder-device-menu')).to.not.exist
+
+      element.toggleDeviceMenu()
+      await element.updateComplete
+      // Fixed positioning runs after updateComplete inside toggleDeviceMenu
+      await Promise.resolve()
+      const options = element.shadowRoot?.querySelectorAll('.recorder-device-option')
+      expect(options?.length).toBe(2)
+      expect(options?.[1].textContent).to.include('USB Mic')
+    })
+
+    it('selects a microphone and closes the menu', async () => {
+      vi.mocked(navigator.mediaDevices.enumerateDevices).mockResolvedValue([
+        { deviceId: 'mic-1', kind: 'audioinput', label: 'Built-in Mic', groupId: 'g1' } as MediaDeviceInfo,
+        { deviceId: 'mic-2', kind: 'audioinput', label: 'USB Mic', groupId: 'g2' } as MediaDeviceInfo,
+      ])
+      await createRecorder({ 'api-key': 'key-1' })
+      await element.refreshAudioInputs()
+      await element.toggleDeviceMenu()
+      await element.updateComplete
+
+      element.selectAudioInput('mic-2')
+      await element.updateComplete
+      expect(element._selectedDeviceId).toBe('mic-2')
+      expect(element._deviceMenuOpen).toBe(false)
+    })
+
+    it('passes the selected deviceId into getUserMedia', async () => {
+      vi.mocked(navigator.mediaDevices.enumerateDevices).mockResolvedValue([
+        { deviceId: 'mic-1', kind: 'audioinput', label: 'Built-in Mic', groupId: 'g1' } as MediaDeviceInfo,
+        { deviceId: 'mic-2', kind: 'audioinput', label: 'USB Mic', groupId: 'g2' } as MediaDeviceInfo,
+      ])
+      await createRecorder({ 'api-key': 'key-1', countdown: '0' })
+      await element.refreshAudioInputs()
+      element.selectAudioInput('mic-2')
+      await element.startRecording()
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({
+        audio: { deviceId: { exact: 'mic-2' } },
+      })
     })
   })
 
