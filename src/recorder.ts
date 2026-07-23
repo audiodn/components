@@ -1439,26 +1439,7 @@ function previewMode (this: AudiodnRecorder) {
   const total = this.formatMmSs(dur)
   return html`
     <div class="recorder-stage recorder-preview">
-      <div class="recorder-preview-top">
-        <div class="recorder-wave-box">
-          <audiodn-waveform
-            class="recorder-waveform"
-            .levels=${this.levels}
-            .progress=${this.previewProgress}
-            .duration=${dur}
-            height="40"
-            line-width="2"
-            gap="2"
-            locale=${this.locale}
-            @adni-seek=${(e: CustomEvent<{ percent: number }>) => this.handlePreviewSeek(e)}
-          ></audiodn-waveform>
-        </div>
-        <div class="recorder-preview-time" aria-live="polite">
-          ${t(this.locale, 'recorder.timer.preview', { current, total })}
-        </div>
-      </div>
-
-      <div class="recorder-lower-slot recorder-controls">
+      <div class="recorder-top recorder-controls">
         <button
           class="recorder-control-btn"
           aria-label=${t(this.locale, 'recorder.aria.discard')}
@@ -1477,6 +1458,27 @@ function previewMode (this: AudiodnRecorder) {
           @click=${() => this.sendRecording()}
         >${iconCheck}</button>
       </div>
+
+      <div class="recorder-lower-slot">
+        <div class="recorder-info">
+          <div class="recorder-wave-box">
+            <audiodn-waveform
+              class="recorder-waveform"
+              .levels=${this.levels}
+              .progress=${this.previewProgress}
+              .duration=${dur}
+              height="40"
+              line-width="2"
+              gap="2"
+              locale=${this.locale}
+              @adni-seek=${(e: CustomEvent<{ percent: number }>) => this.handlePreviewSeek(e)}
+            ></audiodn-waveform>
+          </div>
+          <div class="recorder-preview-time" aria-live="polite">
+            ${t(this.locale, 'recorder.timer.preview', { current, total })}
+          </div>
+        </div>
+      </div>
     </div>
   `
 }
@@ -1485,31 +1487,33 @@ function uploadingMode (this: AudiodnRecorder) {
   const pct = Math.round(this.uploadProgress)
   return html`
     <div class="recorder-stage recorder-uploading">
-      <div class="recorder-preview-top">
-        <div class="recorder-wave-box recorder-upload-box">
-          <div
-            class="recorder-progress"
-            role="progressbar"
-            aria-valuenow=${pct}
-            aria-valuemin="0"
-            aria-valuemax="100"
-            aria-valuetext="${pct}%"
-            aria-label=${t(this.locale, 'recorder.aria.progress')}
-          >
-            <div class="recorder-progress-bar" style="width: ${pct}%"></div>
-          </div>
-        </div>
-        <div class="recorder-preview-time recorder-upload-percent" aria-live="polite">
-          ${pct}%
-        </div>
-      </div>
-
-      <div class="recorder-lower-slot recorder-controls">
+      <div class="recorder-top recorder-controls">
         <button
           class="recorder-control-btn recorder-control-btn--primary recorder-control-btn--cancel"
           aria-label=${t(this.locale, 'recorder.aria.cancelUpload')}
           @click=${() => this.cancelUpload()}
         >${iconStop}</button>
+      </div>
+
+      <div class="recorder-lower-slot">
+        <div class="recorder-info">
+          <div class="recorder-wave-box recorder-upload-box">
+            <div
+              class="recorder-progress"
+              role="progressbar"
+              aria-valuenow=${pct}
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuetext="${pct}%"
+              aria-label=${t(this.locale, 'recorder.aria.progress')}
+            >
+              <div class="recorder-progress-bar" style="width: ${pct}%"></div>
+            </div>
+          </div>
+          <div class="recorder-preview-time recorder-upload-percent" aria-live="polite">
+            ${pct}%
+          </div>
+        </div>
       </div>
     </div>
   `
@@ -1652,11 +1656,22 @@ function styles ({
       min-height: 0;
     }
 
+    /* Shared top region: buttons live here in every mode so the primary
+       control stays vertically anchored and switching modes is not jolting. */
+    .recorder-top {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 88px;
+    }
+
     .recorder-mic-row {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       align-items: center;
       width: 100%;
+      min-height: 88px;
     }
 
     .recorder-mic-row-side {
@@ -1873,6 +1888,15 @@ function styles ({
       box-sizing: border-box;
     }
 
+    /* Shared bottom region: contextual info (hint, waveform+time, progress). */
+    .recorder-info {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2xs);
+      width: 100%;
+    }
+
     .recorder-hint {
       font-size: var(--_text-small);
       color: var(--_color-font-muted);
@@ -1956,14 +1980,6 @@ function styles ({
     .recorder-control-btn--cancel:hover {
       color: #fff;
       opacity: 0.92;
-    }
-
-    .recorder-preview-top {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: var(--space-2xs);
-      width: 100%;
     }
 
     .recorder-preview-time {
