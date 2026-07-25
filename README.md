@@ -107,7 +107,9 @@ which variant indexes are available and which is selected by default.
 | `scope` | string | `""` | The kind of resource `id` refers to when creating a session with `api-key`. Values: `track`, `collection`. |
 | `id` | string | `""` | With `api-key`: ID of the track or collection to open a session for (must match `scope`). With `play-session-id`: optional track UUID to pin the player to a single track in a (typically collection-scoped) session — hides the tracklist and opens on that track. |
 | `variants` | string | `""` | Comma-separated variant indexes to request, in priority order — the **first is selected by default**. e.g. `"hq,lq"`. |
-| `size` | string | `large` | Layout preset. Values: `small`, `regular`, `large`. |
+| `size` | string | `large` | Layout preset for the `default` variant. Values: `small`, `regular`, `large`. |
+| `variant` | string | `default` | Layout variant. `default` is the full player (cover art, title, waveform, controls, tracklist). `inline` is a compact play/pause button — with a circular progress ring that fills clockwise from the top — plus the settings menu, and shows no track information (surface it yourself). |
+| `height` | number | `56` | `inline` variant only. Edge size (px) of the square play/pause button. |
 | `locale` | string | `en` | UI language. Values: `en`, `fr`, `es`, `de`. |
 | `volume` | number | `0.7` | Initial volume, `0`–`1`. Persisted to `sessionStorage` after the user changes it. |
 | `session-ttl` | number | — | Requested play-session lifetime, in seconds. |
@@ -229,8 +231,8 @@ You must provide **either** `api-key` **or** `upload-session-id`.
 | `max-duration` | number | `0` | Max recording length in seconds. `0` = unlimited. |
 | `countdown` | number | `3` | Pre-record countdown length (`3` → 3‑2‑1). `0` skips the countdown and starts immediately. |
 | `auto-hide` | boolean | `false` | After a successful upload, sets the host to `display: none`. |
-| `variant` | string | `panel` | Layout preset. `panel` (a.k.a. `regular`) is the full panel with waveform, timers, and separate controls. `tiny` is a compact two-button layout: a record button (with a source menu when more than one mic is available) that animates while recording, then a confirm button plus a contextual preview/delete menu. |
-| `height` | number | `56` | `tiny` variant only. Edge size (px) of the square icon buttons; all tiny buttons share this size. |
+| `variant` | string | `panel` | Layout preset. `panel` (a.k.a. `regular`) is the full panel with waveform, timers, and separate controls. `inline` is a compact two-button layout: a record button (with a source menu when more than one mic is available) that animates while recording, then a confirm button plus a contextual preview/delete menu. |
+| `height` | number | `56` | `inline` variant only. Edge size (px) of the square icon buttons; all inline buttons share this size. |
 
 ### Events
 

@@ -20,13 +20,21 @@ import {
 import { globalReset, globalVariables, themePalette } from './global-css.ts'
 import { accentForTheme, isDark as isColorDark, parseHex } from './lib/color.ts'
 import { t, type Locale } from './lib/i18n.ts'
+import {
+  applySinkId,
+  getPreferredAudioInputId,
+  setPreferredAudioInputId,
+  getPreferredAudioOutputId,
+  INPUT_CHANGE_EVENT,
+  OUTPUT_CHANGE_EVENT,
+} from './lib/media-devices.ts'
 import './components/notification.ts'
 import './waveform.ts'
 import type { CSSResult } from 'lit'
 import type { AudioDnNotification } from './components/notification.ts'
 
 export type Theme = 'auto' | 'dark' | 'light'
-export type RecorderVariant = 'panel' | 'regular' | 'tiny'
+export type RecorderVariant = 'panel' | 'regular' | 'inline'
 export type RecorderMode = 'idle' | 'countdown' | 'recording' | 'preview' | 'uploading' | 'done'
 
 const PROGRESS_THROTTLE_MS = 100
@@ -96,7 +104,7 @@ export class AudiodnRecorder extends LitElement {
   @property({ type: String, attribute: 'variant', reflect: true })
   variant: RecorderVariant = 'panel'
 
-  /** Button size (px) for the `tiny` variant. Buttons are square (width = height). */
+  /** Button size (px) for the `inline` variant. Buttons are square (width = height). */
   @property({ type: Number, attribute: 'height' })
   height: number = 56
 
@@ -159,9 +167,9 @@ export class AudiodnRecorder extends LitElement {
   @state()
   _deviceMenuOpen: boolean = false
 
-  /** Transient failure flag: shows a red warning glyph in the tiny variant. */
+  /** Transient failure flag: shows a red warning glyph in the inline variant. */
   @state()
-  _tinyError: boolean = false
+  _inlineError: boolean = false
 
   private _mediaStream: MediaStream | null = null
   private _mediaRecorder: MediaRecorder | null = null
@@ -174,7 +182,7 @@ export class AudiodnRecorder extends LitElement {
   private _previewAudio: HTMLAudioElement | null = null
   private _xhr?: XMLHttpRequest
   private _doneTimer?: ReturnType<typeof setTimeout>
-  private _tinyErrorTimer?: ReturnType<typeof setTimeout>
+  private _inlineErrorTimer?: ReturnType<typeof setTimeout>
   private _maxDurationTimer?: ReturnType<typeof setTimeout>
   private _sessionTimer = new SessionExpiryTimer()
   private _schemeQuery?: MediaQueryList
@@ -184,6 +192,20 @@ export class AudiodnRecorder extends LitElement {
 
   private _onDeviceChange = () => {
     this.refreshAudioInputs().catch(() => undefined)
+  }
+
+  // Another recorder changed the shared microphone. Adopt the selection so the
+  // next capture uses it, but never interrupt an in-progress recording — the
+  // change takes effect on the following `acquireRecorder()`.
+  private _onInputChange = (e: Event) => {
+    const detail = (e as CustomEvent).detail
+    if (detail?.origin === this) return
+    this._selectedDeviceId = getPreferredAudioInputId()
+  }
+
+  // The shared output device changed: route the preview player to it.
+  private _onOutputChange = () => {
+    applySinkId(this._previewAudio, getPreferredAudioOutputId())
   }
 
   private _onDocPointerDown = (e: Event) => {
@@ -247,13 +269,13 @@ export class AudiodnRecorder extends LitElement {
     if (changedProperties.has('mode') && this._deviceMenuOpen && !this.canOpenMenu()) {
       this.closeDeviceMenu()
     }
-    // Publish the tiny button size on the host so padding, gap, and buttons all
+    // Publish the inline button size on the host so padding, gap, and buttons all
     // scale together (custom properties on the host inherit into the shadow tree).
     if (changedProperties.has('variant') || changedProperties.has('height')) {
-      if (this.isTiny()) {
-        this.style.setProperty('--_tiny-size', `${this.tinyButtonSize()}px`)
+      if (this.isInline()) {
+        this.style.setProperty('--_inline-size', `${this.inlineButtonSize()}px`)
       } else {
-        this.style.removeProperty('--_tiny-size')
+        this.style.removeProperty('--_inline-size')
       }
     }
   }
@@ -269,7 +291,12 @@ export class AudiodnRecorder extends LitElement {
     }
     if (typeof document !== 'undefined') {
       document.addEventListener('pointerdown', this._onDocPointerDown, true)
+      document.addEventListener(INPUT_CHANGE_EVENT, this._onInputChange)
+      document.addEventListener(OUTPUT_CHANGE_EVENT, this._onOutputChange)
     }
+    // Adopt the page-wide microphone preference (empty means browser default).
+    const preferredInput = getPreferredAudioInputId()
+    if (preferredInput) this._selectedDeviceId = preferredInput
     if (this.hasAttribute('accent-color')) {
       this.applyAccent()
     }
@@ -287,6 +314,8 @@ export class AudiodnRecorder extends LitElement {
     }
     if (typeof document !== 'undefined') {
       document.removeEventListener('pointerdown', this._onDocPointerDown, true)
+      document.removeEventListener(INPUT_CHANGE_EVENT, this._onInputChange)
+      document.removeEventListener(OUTPUT_CHANGE_EVENT, this._onOutputChange)
     }
     this._deviceMenuOpen = false
     this.removeAttribute('data-menu-open')
@@ -303,9 +332,9 @@ export class AudiodnRecorder extends LitElement {
       clearTimeout(this._doneTimer)
       this._doneTimer = undefined
     }
-    if (this._tinyErrorTimer) {
-      clearTimeout(this._tinyErrorTimer)
-      this._tinyErrorTimer = undefined
+    if (this._inlineErrorTimer) {
+      clearTimeout(this._inlineErrorTimer)
+      this._inlineErrorTimer = undefined
     }
   }
 
@@ -499,7 +528,7 @@ export class AudiodnRecorder extends LitElement {
     } else {
       this.notify('error', t(this.locale, 'recorder.notify.micUnavailable'))
     }
-    this.flashTinyError()
+    this.flashInlineError()
   }
 
   /** Refresh the list of `audioinput` devices. Menu shows only when length > 1. */
@@ -521,12 +550,12 @@ export class AudiodnRecorder extends LitElement {
   }
 
   /** True for the compact, two-button layout. */
-  isTiny (): boolean {
-    return this.variant === 'tiny'
+  isInline (): boolean {
+    return this.variant === 'inline'
   }
 
-  /** Square button edge (px) for the tiny variant, clamped to a sane minimum. */
-  tinyButtonSize (): number {
+  /** Square button edge (px) for the inline variant, clamped to a sane minimum. */
+  inlineButtonSize (): number {
     const n = Number(this.height)
     return Number.isFinite(n) && n > 0 ? Math.max(24, n) : 56
   }
@@ -536,9 +565,9 @@ export class AudiodnRecorder extends LitElement {
     return this._audioInputs.length > 1 && this.mode === 'idle' && !this.disabled
   }
 
-  /** True when the tiny variant shows its contextual menu (preview or upload). */
+  /** True when the inline variant shows its contextual menu (preview or upload). */
   showContextMenu (): boolean {
-    return this.isTiny() &&
+    return this.isInline() &&
       (this.mode === 'preview' || this.mode === 'uploading') &&
       !this.disabled
   }
@@ -548,19 +577,19 @@ export class AudiodnRecorder extends LitElement {
     return this.showDevicePicker() || this.showContextMenu()
   }
 
-  /** Close the menu, then toggle preview playback (tiny contextual action). */
+  /** Close the menu, then toggle preview playback (inline contextual action). */
   menuTogglePreview () {
     this.closeDeviceMenu()
     this.togglePreviewPlayback()
   }
 
-  /** Close the menu, then discard the recording (tiny contextual action). */
+  /** Close the menu, then discard the recording (inline contextual action). */
   menuDelete () {
     this.closeDeviceMenu()
     this.discardRecording()
   }
 
-  /** Close the menu, then cancel the in-flight upload (tiny contextual action). */
+  /** Close the menu, then cancel the in-flight upload (inline contextual action). */
   menuCancelUpload () {
     this.closeDeviceMenu()
     this.cancelUpload()
@@ -602,6 +631,16 @@ export class AudiodnRecorder extends LitElement {
   selectAudioInput (deviceId: string) {
     this._selectedDeviceId = deviceId
     this.closeDeviceMenu()
+    // Persist and broadcast so other recorders on the page follow suit. The
+    // change applies on the next capture; an active recording is not disturbed.
+    setPreferredAudioInputId(deviceId)
+    if (typeof document !== 'undefined') {
+      document.dispatchEvent(
+        new CustomEvent(INPUT_CHANGE_EVENT, {
+          detail: { origin: this, data: deviceId }
+        })
+      )
+    }
   }
 
   closeDeviceMenu () {
@@ -1062,6 +1101,8 @@ export class AudiodnRecorder extends LitElement {
     audio.addEventListener('ended', this.onPreviewEnded)
     audio.addEventListener('loadedmetadata', this.onPreviewLoadedMetadata)
     this._previewAudio = audio
+    // Route preview playback to the page-wide output device (if any).
+    applySinkId(audio, getPreferredAudioOutputId())
   }
 
   private onPreviewTimeUpdate = () => {
@@ -1242,7 +1283,7 @@ export class AudiodnRecorder extends LitElement {
       this.notify('error', t(this.locale, 'recorder.notify.uploadFailedDetail', { error: message }), {
         action: { label: t(this.locale, 'action.retry'), onClick: () => this.sendRecording() },
       })
-      this.flashTinyError()
+      this.flashInlineError()
       this.mode = 'preview'
       this.uploadProgress = 0
       if (this._objectUrl) this.setupPreviewAudio(this._objectUrl)
@@ -1326,16 +1367,16 @@ export class AudiodnRecorder extends LitElement {
   }
 
   /**
-   * Show a transient red warning glyph in the tiny variant (which suppresses the
+   * Show a transient red warning glyph in the inline variant (which suppresses the
    * notification banner because it's too small to read inside a compact control).
    */
-  private flashTinyError () {
-    if (!this.isTiny()) return
-    this._tinyError = true
-    if (this._tinyErrorTimer) clearTimeout(this._tinyErrorTimer)
-    this._tinyErrorTimer = setTimeout(() => {
-      this._tinyError = false
-      this._tinyErrorTimer = undefined
+  private flashInlineError () {
+    if (!this.isInline()) return
+    this._inlineError = true
+    if (this._inlineErrorTimer) clearTimeout(this._inlineErrorTimer)
+    this._inlineErrorTimer = setTimeout(() => {
+      this._inlineError = false
+      this._inlineErrorTimer = undefined
     }, DONE_RESET_MS)
   }
 
@@ -1393,11 +1434,11 @@ function fallbackLevels (): number[] {
 
 function template (this: AudiodnRecorder) {
   return html`
-    ${this.isTiny() ? '' : html`<audiodn-notification .locale=${this.locale}></audiodn-notification>`}
+    ${this.isInline() ? '' : html`<audiodn-notification .locale=${this.locale}></audiodn-notification>`}
 
     ${this.error
       ? html`
-          <div class="recorder-shell recorder-error-state ${this.isTiny() ? 'recorder-tiny' : ''}" role="alert">
+          <div class="recorder-shell recorder-error-state ${this.isInline() ? 'recorder-inline' : ''}" role="alert">
             <div class="recorder-error-icon">${iconAlert}</div>
             <div class="recorder-error-text">${this.error}</div>
             <button class="recorder-text-button" @click=${() => this.retryLoadSession()}>
@@ -1407,17 +1448,17 @@ function template (this: AudiodnRecorder) {
         `
       : this.isLoading
         ? html`
-            <div class="recorder-shell recorder-loading ${this.isTiny() ? 'recorder-tiny' : ''}" role="status" aria-label=${t(this.locale, 'recorder.aria.loading')}>
+            <div class="recorder-shell recorder-loading ${this.isInline() ? 'recorder-inline' : ''}" role="status" aria-label=${t(this.locale, 'recorder.aria.loading')}>
               <span class="recorder-loader" aria-hidden="true"></span>
               <span class="sr-only">${t(this.locale, 'recorder.loadingText')}</span>
             </div>
           `
         : html`
-            <div class="recorder-shell ${this.isTiny() ? 'recorder-tiny' : 'recorder-panel'}"
+            <div class="recorder-shell ${this.isInline() ? 'recorder-inline' : 'recorder-panel'}"
                  role="region"
                  aria-label=${t(this.locale, 'recorder.aria.region')}>
-              ${this.isTiny()
-                ? tinyMode.call(this)
+              ${this.isInline()
+                ? inlineMode.call(this)
                 : html`
                     ${this.mode === 'idle' || this.mode === 'countdown' || this.mode === 'recording'
                       ? idleOrRecording.call(this)
@@ -1582,44 +1623,44 @@ function doneMode (this: AudiodnRecorder) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Tiny variant: at most two icon buttons, minimal chrome.            */
+/* Inline variant: at most two icon buttons, minimal chrome.            */
 /* ------------------------------------------------------------------ */
 
-function tinyMode (this: AudiodnRecorder) {
+function inlineMode (this: AudiodnRecorder) {
   // Transient failure feedback replaces the (too-small) notification banner.
-  if (this._tinyError) {
+  if (this._inlineError) {
     return html`
-      <div class="recorder-tiny-stage recorder-tiny-done" role="alert" aria-label=${t(this.locale, 'recorder.notify.uploadFailed')}>
-        <div class="recorder-tiny-buttons">
-          <span class="recorder-tiny-check recorder-tiny-warn">${iconAlert}</span>
-          ${tinyMenuPlaceholder.call(this)}
+      <div class="recorder-inline-stage recorder-inline-done" role="alert" aria-label=${t(this.locale, 'recorder.notify.uploadFailed')}>
+        <div class="recorder-inline-buttons">
+          <span class="recorder-inline-check recorder-inline-warn">${iconAlert}</span>
+          ${inlineMenuPlaceholder.call(this)}
         </div>
       </div>
     `
   }
   if (this.mode === 'done') {
     return html`
-      <div class="recorder-tiny-stage recorder-tiny-done" role="status" aria-label=${t(this.locale, 'recorder.aria.done')}>
-        <div class="recorder-tiny-buttons">
-          <span class="recorder-tiny-check">${iconCheck}</span>
-          ${tinyMenuPlaceholder.call(this)}
+      <div class="recorder-inline-stage recorder-inline-done" role="status" aria-label=${t(this.locale, 'recorder.aria.done')}>
+        <div class="recorder-inline-buttons">
+          <span class="recorder-inline-check">${iconCheck}</span>
+          ${inlineMenuPlaceholder.call(this)}
         </div>
       </div>
     `
   }
-  if (this.mode === 'preview') return tinyPreview.call(this)
-  if (this.mode === 'uploading') return tinyUploading.call(this)
-  return tinyIdleRecording.call(this)
+  if (this.mode === 'preview') return inlinePreview.call(this)
+  if (this.mode === 'uploading') return inlineUploading.call(this)
+  return inlineIdleRecording.call(this)
 }
 
-function tinyIdleRecording (this: AudiodnRecorder) {
+function inlineIdleRecording (this: AudiodnRecorder) {
   const recording = this.mode === 'recording'
   const counting = this.mode === 'countdown'
   return html`
-    <div class="recorder-tiny-stage">
-      <div class="recorder-tiny-buttons">
+    <div class="recorder-inline-stage">
+      <div class="recorder-inline-buttons">
         <button
-          class="recorder-tiny-record ${recording ? 'is-recording' : ''} ${counting ? 'is-counting' : ''}"
+          class="recorder-inline-record ${recording ? 'is-recording' : ''} ${counting ? 'is-counting' : ''}"
           ?disabled=${this.disabled}
           aria-label=${recording
             ? t(this.locale, 'recorder.aria.stop')
@@ -1628,10 +1669,10 @@ function tinyIdleRecording (this: AudiodnRecorder) {
               : t(this.locale, 'recorder.aria.start')}
           @click=${() => this.handleMicClick()}
         >
-          <span class="recorder-tiny-ring" aria-hidden="true"></span>
+          <span class="recorder-inline-ring" aria-hidden="true"></span>
           ${counting
-            ? html`<span class="recorder-tiny-count" aria-live="assertive">${this.countdownValue}</span>`
-            : html`<span class="recorder-tiny-icon">${recording ? iconStop : iconMic}</span>`}
+            ? html`<span class="recorder-inline-count" aria-live="assertive">${this.countdownValue}</span>`
+            : html`<span class="recorder-inline-icon">${recording ? iconStop : iconMic}</span>`}
         </button>
         ${deviceMenu.call(this)}
       </div>
@@ -1639,16 +1680,16 @@ function tinyIdleRecording (this: AudiodnRecorder) {
   `
 }
 
-function tinyPreview (this: AudiodnRecorder) {
+function inlinePreview (this: AudiodnRecorder) {
   return html`
-    <div class="recorder-tiny-stage recorder-tiny-preview">
-      <div class="recorder-tiny-buttons">
+    <div class="recorder-inline-stage recorder-inline-preview">
+      <div class="recorder-inline-buttons">
         <button
-          class="recorder-tiny-record recorder-tiny-confirm"
+          class="recorder-inline-record recorder-inline-confirm"
           aria-label=${t(this.locale, 'recorder.aria.send')}
           @click=${() => this.sendRecording()}
         >
-          <span class="recorder-tiny-icon">${iconCheck}</span>
+          <span class="recorder-inline-icon">${iconCheck}</span>
         </button>
         ${contextMenu.call(this)}
       </div>
@@ -1656,14 +1697,14 @@ function tinyPreview (this: AudiodnRecorder) {
   `
 }
 
-function tinyUploading (this: AudiodnRecorder) {
+function inlineUploading (this: AudiodnRecorder) {
   const pct = Math.round(this.uploadProgress)
   return html`
-    <div class="recorder-tiny-stage recorder-tiny-uploading">
-      <div class="recorder-tiny-buttons">
+    <div class="recorder-inline-stage recorder-inline-uploading">
+      <div class="recorder-inline-buttons">
         <div
-          class="recorder-tiny-progress"
-          style=${`--_tiny-progress:${pct}`}
+          class="recorder-inline-progress"
+          style=${`--_inline-progress:${pct}`}
           role="progressbar"
           aria-valuenow=${pct}
           aria-valuemin="0"
@@ -1671,9 +1712,9 @@ function tinyUploading (this: AudiodnRecorder) {
           aria-valuetext="${pct}%"
           aria-label=${t(this.locale, 'recorder.aria.progress')}
         >
-          <span class="recorder-tiny-ring recorder-tiny-ring--progress" aria-hidden="true"></span>
-          <span class="recorder-tiny-ring recorder-tiny-ring--spin" aria-hidden="true"></span>
-          <span class="recorder-tiny-progress-label" aria-hidden="true">${pct}%</span>
+          <span class="recorder-inline-ring recorder-inline-ring--progress" aria-hidden="true"></span>
+          <span class="recorder-inline-ring recorder-inline-ring--spin" aria-hidden="true"></span>
+          <span class="recorder-inline-progress-label" aria-hidden="true">${pct}%</span>
         </div>
         ${contextMenu.call(this)}
       </div>
@@ -1682,11 +1723,11 @@ function tinyUploading (this: AudiodnRecorder) {
 }
 
 /**
- * A non-interactive, disabled copy of the menu button. Used in tiny states that
+ * A non-interactive, disabled copy of the menu button. Used in inline states that
  * have no menu action (done, error) so the component always keeps its two-button
  * silhouette instead of collapsing to one.
  */
-function tinyMenuPlaceholder (this: AudiodnRecorder) {
+function inlineMenuPlaceholder (this: AudiodnRecorder) {
   return html`
     <div class="recorder-device">
       <button
@@ -1702,9 +1743,9 @@ function tinyMenuPlaceholder (this: AudiodnRecorder) {
   `
 }
 
-/** The mic-selection popover (idle), reused by tiny + regular variants. */
+/** The mic-selection popover (idle), reused by inline + regular variants. */
 function deviceMenu (this: AudiodnRecorder) {
-  // In tiny the button is always present (kept as the constant second button)
+  // In inline the button is always present (kept as the constant second button)
   // but is disabled unless a pick is actually possible.
   const pickable = this.showDevicePicker()
   return html`
@@ -1754,7 +1795,7 @@ function deviceMenu (this: AudiodnRecorder) {
   `
 }
 
-/** Contextual popover for tiny preview (preview/delete) and uploading (stop upload). */
+/** Contextual popover for inline preview (preview/delete) and uploading (stop upload). */
 function contextMenu (this: AudiodnRecorder) {
   const uploading = this.mode === 'uploading'
   return html`
@@ -2345,23 +2386,23 @@ function styles ({
     }
 
     /* ---------------------------------------------------------------- */
-    /* Tiny variant                                                     */
+    /* Inline variant                                                     */
     /* ---------------------------------------------------------------- */
 
-    /* Tiny pill chrome lives on the INNER .recorder-tiny shell, not on :host.
+    /* Inline pill chrome lives on the INNER .recorder-inline shell, not on :host.
        Page-level resets (e.g. Vuetify * { padding: 0 }) style the host from
        outside the shadow tree and can wipe :host padding — which is why the
        components demoserver looked flush while the docs site (no such reset)
        showed the intended inset. */
-    :host([variant="tiny"]) {
+    :host([variant="inline"]) {
       --_shell-min-height: 0px;
-      --_tiny-size: 56px;
-      --_tiny-pad: var(--adn-tiny-padding, calc(var(--_tiny-size) * 0.09));
+      --_inline-size: 56px;
+      --_inline-pad: var(--adn-inline-padding, calc(var(--_inline-size) * 0.09));
       /* Icons keep the normal ratios at 40px+. Below that, boost glyph size so
          very small buttons (e.g. height=28) stay readable. */
-      --_tiny-icon: calc(var(--_tiny-size) * 0.42 + max(0px, (40px - var(--_tiny-size)) * 0.3));
-      --_tiny-icon-sm: calc(var(--_tiny-size) * 0.34 + max(0px, (40px - var(--_tiny-size)) * 0.25));
-      --_tiny-label: calc(var(--_tiny-size) * 0.28 + max(0px, (40px - var(--_tiny-size)) * 0.2));
+      --_inline-icon: calc(var(--_inline-size) * 0.42 + max(0px, (40px - var(--_inline-size)) * 0.3));
+      --_inline-icon-sm: calc(var(--_inline-size) * 0.34 + max(0px, (40px - var(--_inline-size)) * 0.25));
+      --_inline-label: calc(var(--_inline-size) * 0.28 + max(0px, (40px - var(--_inline-size)) * 0.2));
       padding: 0;
       background: transparent;
       border: none;
@@ -2372,11 +2413,11 @@ function styles ({
       overflow: visible;
     }
 
-    .recorder-tiny {
+    .recorder-inline {
       min-height: 0;
       justify-content: center;
       box-sizing: border-box;
-      padding: var(--_tiny-pad);
+      padding: var(--_inline-pad);
       border-radius: 999px;
       background: var(--_bg);
       color: var(--_color-font);
@@ -2384,28 +2425,28 @@ function styles ({
       box-shadow: var(--adn-box-shadow);
     }
 
-    .recorder-tiny-stage {
+    .recorder-inline-stage {
       display: flex;
       align-items: center;
       justify-content: center;
       width: 100%;
     }
 
-    .recorder-tiny-buttons {
+    .recorder-inline-buttons {
       display: flex;
       align-items: center;
       /* Space buttons ~half a button apart. */
-      gap: calc(var(--_tiny-size) * 0.5);
+      gap: calc(var(--_inline-size) * 0.5);
     }
 
-    /* Every tiny control is the same square size (width == height) so the
+    /* Every inline control is the same square size (width == height) so the
        pill never changes dimensions across idle / preview / uploading / done. */
-    .recorder-tiny-record,
-    .recorder-tiny-progress,
-    .recorder-tiny .recorder-device-button {
+    .recorder-inline-record,
+    .recorder-inline-progress,
+    .recorder-inline .recorder-device-button {
       position: relative;
-      width: var(--_tiny-size);
-      height: var(--_tiny-size);
+      width: var(--_inline-size);
+      height: var(--_inline-size);
       border-radius: 50%;
       border: none;
       cursor: pointer;
@@ -2420,48 +2461,48 @@ function styles ({
       box-sizing: border-box;
     }
 
-    .recorder-tiny-record {
+    .recorder-inline-record {
       background: var(--_color-accent);
       color: var(--_color-accent-alt);
     }
 
-    .recorder-tiny-record:hover:not(:disabled),
-    .recorder-tiny .recorder-device-button:hover:not(:disabled) {
+    .recorder-inline-record:hover:not(:disabled),
+    .recorder-inline .recorder-device-button:hover:not(:disabled) {
       transform: scale(1.04);
     }
 
-    .recorder-tiny-record:focus-visible {
+    .recorder-inline-record:focus-visible {
       outline: 2px solid var(--_color-font);
       outline-offset: 3px;
     }
 
-    .recorder-tiny-record:disabled {
+    .recorder-inline-record:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
 
-    .recorder-tiny .recorder-device-icon {
-      width: var(--_tiny-icon-sm);
-      height: var(--_tiny-icon-sm);
+    .recorder-inline .recorder-device-icon {
+      width: var(--_inline-icon-sm);
+      height: var(--_inline-icon-sm);
     }
 
-    .recorder-tiny-icon {
+    .recorder-inline-icon {
       position: relative;
       z-index: 1;
       display: inline-flex;
-      width: var(--_tiny-icon);
-      height: var(--_tiny-icon);
+      width: var(--_inline-icon);
+      height: var(--_inline-icon);
     }
 
-    .recorder-tiny-icon svg {
+    .recorder-inline-icon svg {
       width: 100%;
       height: 100%;
     }
 
-    .recorder-tiny-count {
+    .recorder-inline-count {
       position: relative;
       z-index: 1;
-      font-size: var(--_tiny-icon);
+      font-size: var(--_inline-icon);
       font-weight: 700;
       line-height: 1;
       font-variant-numeric: tabular-nums;
@@ -2469,7 +2510,7 @@ function styles ({
 
     /* Base ring sits flush with the button edge; it grows outward when active.
        Kept outside overflow:hidden so the pulse is always visible. */
-    .recorder-tiny-ring {
+    .recorder-inline-ring {
       position: absolute;
       inset: 0;
       border-radius: 50%;
@@ -2477,52 +2518,52 @@ function styles ({
       opacity: 0;
     }
 
-    .recorder-tiny-record.is-recording {
+    .recorder-inline-record.is-recording {
       background: var(--_color-error);
       color: #fff;
     }
 
     /* Expanding pulse ring = "voice is being heard". */
-    .recorder-tiny-record.is-recording .recorder-tiny-ring {
+    .recorder-inline-record.is-recording .recorder-inline-ring {
       opacity: 1;
       border: 3px solid var(--_color-error);
-      animation: adn-tiny-pulse 1.4s ease-out infinite;
+      animation: adn-inline-pulse 1.4s ease-out infinite;
     }
 
-    .recorder-tiny-record.is-counting .recorder-tiny-ring {
+    .recorder-inline-record.is-counting .recorder-inline-ring {
       opacity: 1;
       border: 3px solid rgba(var(--_color-accent-rgb), 0.7);
       animation: adn-pulse 0.5s ease-in-out infinite;
     }
 
-    .recorder-tiny-confirm {
+    .recorder-inline-confirm {
       background: var(--_color-accent);
       color: var(--_color-accent-alt);
     }
 
     /* Upload progress: same footprint as the record/confirm button. Cancel lives in the menu. */
-    .recorder-tiny-progress {
+    .recorder-inline-progress {
       background: var(--_bg-light);
       color: var(--_color-font);
       cursor: default;
       pointer-events: none;
     }
 
-    .recorder-tiny-progress-label {
+    .recorder-inline-progress-label {
       position: relative;
       z-index: 1;
-      font-size: var(--_tiny-label);
+      font-size: var(--_inline-label);
       font-weight: 600;
       font-variant-numeric: tabular-nums;
       line-height: 1;
     }
 
     /* Determinate progress ring drawn inside the exact button bounds. */
-    .recorder-tiny-ring--progress {
+    .recorder-inline-ring--progress {
       opacity: 1;
       inset: 0;
       background: conic-gradient(
-        var(--_color-accent) calc(var(--_tiny-progress, 0) * 1%),
+        var(--_color-accent) calc(var(--_inline-progress, 0) * 1%),
         color-mix(in srgb, var(--_color-font) 18%, transparent) 0
       );
       -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
@@ -2531,7 +2572,7 @@ function styles ({
     }
 
     /* Indeterminate spin around the percentage (same footprint — no size change). */
-    .recorder-tiny-ring--spin {
+    .recorder-inline-ring--spin {
       opacity: 1;
       inset: 0;
       background: conic-gradient(
@@ -2547,29 +2588,29 @@ function styles ({
       animation: adn-ring-spin 1s linear infinite;
     }
 
-    .recorder-tiny-check {
+    .recorder-inline-check {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: var(--_tiny-size);
-      height: var(--_tiny-size);
+      width: var(--_inline-size);
+      height: var(--_inline-size);
       border-radius: 50%;
       background: var(--_color-accent);
       color: var(--_color-accent-alt);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     }
 
-    .recorder-tiny-check svg {
-      width: var(--_tiny-icon);
-      height: var(--_tiny-icon);
+    .recorder-inline-check svg {
+      width: var(--_inline-icon);
+      height: var(--_inline-icon);
     }
 
-    .recorder-tiny-warn {
+    .recorder-inline-warn {
       background: var(--_color-error);
       color: #fff;
     }
 
-    /* Contextual menu items (tiny preview) */
+    /* Contextual menu items (inline preview) */
     .recorder-menu-item {
       justify-content: flex-start;
     }
@@ -2615,8 +2656,8 @@ function styles ({
       50% { transform: scale(1.08); opacity: 1; }
     }
 
-    /* Expanding + fading ring used by the tiny recording indicator. */
-    @keyframes adn-tiny-pulse {
+    /* Expanding + fading ring used by the inline recording indicator. */
+    @keyframes adn-inline-pulse {
       0% { transform: scale(1); opacity: 0.85; }
       100% { transform: scale(1.45); opacity: 0; }
     }
@@ -2631,10 +2672,10 @@ function styles ({
       .recorder-mic-button.is-recording .recorder-mic-halo { animation: none; }
       .recorder-mic-button.is-counting .recorder-mic-halo { animation: none; }
       .recorder-progress-bar { transition: none; }
-      .recorder-tiny-record:hover:not(:disabled) { transform: none; }
-      .recorder-tiny-record.is-recording .recorder-tiny-ring { animation: none; }
-      .recorder-tiny-record.is-counting .recorder-tiny-ring { animation: none; }
-      .recorder-tiny-ring--spin { animation: none; opacity: 0; }
+      .recorder-inline-record:hover:not(:disabled) { transform: none; }
+      .recorder-inline-record.is-recording .recorder-inline-ring { animation: none; }
+      .recorder-inline-record.is-counting .recorder-inline-ring { animation: none; }
+      .recorder-inline-ring--spin { animation: none; opacity: 0; }
     }
   `
 }

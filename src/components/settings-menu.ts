@@ -1,9 +1,16 @@
 import { LitElement, html, css } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
-import { iconSetting, iconDownload } from '../lib/constants.ts'
+import { iconMoreVertical, iconDownload, iconCheck } from '../lib/constants.ts'
 import { getPlaySessionTrackVariantDownload } from '../lib/api.ts'
 import { formatBytes } from '../lib/util.ts'
 import { t, type Locale } from '../lib/i18n.ts'
+import {
+  supportsSinkId,
+  enumerateAudioOutputs,
+  getPreferredAudioOutputId,
+  OUTPUT_CHANGE_EVENT,
+  type AudioDevice,
+} from '../lib/media-devices.ts'
 import type { CSSResult, TemplateResult } from 'lit'
 import type { TrackVariant } from '../lib/track.ts'
 
@@ -30,6 +37,15 @@ export class AudioDnSettingsMenu extends LitElement {
   @state()
   protected isOpen = false
 
+  // Available `audiooutput` devices and the page-wide selection (empty means
+  // the browser default). Seeded from storage and kept in sync via the
+  // `adn-outputchange` document event.
+  @state()
+  protected outputs: AudioDevice[] = []
+
+  @state()
+  protected selectedOutputId: string = getPreferredAudioOutputId()
+
   static styles = styles()
 
   // Number of real variants (activeTrackVariants can be sparse, so ignore holes).
@@ -37,15 +53,27 @@ export class AudioDnSettingsMenu extends LitElement {
     return this.variants.filter(Boolean).length
   }
 
-  // The cog is only useful when it has something behind it: more than one
-  // variant to switch between, or a downloadable variant. With a single variant
-  // and no download there's nothing to choose, so the menu hides itself (see the
-  // :host([hidden]) rule) and the volume control takes over the space.
-  get hasMenu (): boolean {
+  // Output selection is only offered when the browser can actually route audio
+  // (setSinkId) and there is more than one device to choose between.
+  get showOutputPicker (): boolean {
+    return supportsSinkId() && this.outputs.length > 1
+  }
+
+  // The variant/download section needs a play session and something to act on:
+  // more than one variant to switch between, or a downloadable variant.
+  get showVariantSection (): boolean {
     if (!this.playSessionId) return false
     const canSwitchVariant = this.variantCount > 1
     const canDownload = this.download && this.variantCount > 0
     return canSwitchVariant || canDownload
+  }
+
+  // The trigger is only useful when it has something behind it: an output
+  // device to pick, more than one variant, or a downloadable variant. With
+  // nothing to choose the menu hides itself (see the :host([hidden]) rule) and
+  // the volume control takes over the space.
+  get hasMenu (): boolean {
+    return this.showOutputPicker || this.showVariantSection
   }
 
   render () {
@@ -101,9 +129,51 @@ export class AudioDnSettingsMenu extends LitElement {
     }
   }
 
+  connectedCallback () {
+    super.connectedCallback()
+    this.selectedOutputId = getPreferredAudioOutputId()
+    this.refreshOutputs()
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', this.onDeviceChange)
+    }
+    if (typeof document !== 'undefined') {
+      document.addEventListener(OUTPUT_CHANGE_EVENT, this.onOutputChange)
+    }
+  }
+
   disconnectedCallback () {
     super.disconnectedCallback()
     this.removeDismissListeners()
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.removeEventListener) {
+      navigator.mediaDevices.removeEventListener('devicechange', this.onDeviceChange)
+    }
+    if (typeof document !== 'undefined') {
+      document.removeEventListener(OUTPUT_CHANGE_EVENT, this.onOutputChange)
+    }
+  }
+
+  async refreshOutputs () {
+    if (!supportsSinkId()) return
+    const outputs = await enumerateAudioOutputs()
+    this.outputs = outputs
+    if (this.selectedOutputId && !outputs.some((d) => d.deviceId === this.selectedOutputId)) {
+      this.selectedOutputId = ''
+    }
+  }
+
+  private readonly onDeviceChange = () => {
+    this.refreshOutputs().catch(() => undefined)
+  }
+
+  // Another player changed the shared output device: re-read the persisted
+  // selection so this menu's checkmark stays in sync.
+  private readonly onOutputChange = () => {
+    this.selectedOutputId = getPreferredAudioOutputId()
+  }
+
+  outputLabel (device: AudioDevice, index: number): string {
+    if (device.label.trim()) return device.label
+    return t(this.locale, 'settings.output.unnamed', { n: String(index + 1) })
   }
 
   handleEvent (event: Event) {
@@ -117,6 +187,15 @@ export class AudioDnSettingsMenu extends LitElement {
       const el = event.currentTarget as HTMLElement
       const detail = el.getAttribute('index')
       this.dispatchEvent(new CustomEvent('adni-selectvariant', { detail }))
+    }
+
+    if (event.type === 'click' && target.getAttribute('name') === 'output') {
+      const deviceId = target.getAttribute('index') || ''
+      // Optimistically reflect the pick; the player owns persistence + the
+      // page-wide broadcast (adn-outputchange), which syncs every other menu.
+      this.selectedOutputId = deviceId
+      this.isOpen = false
+      this.dispatchEvent(new CustomEvent('adni-selectoutput', { detail: deviceId }))
     }
   }
 
@@ -274,6 +353,9 @@ declare global {
 function template (this: AudioDnSettingsMenu): TemplateResult {
   if (!this.hasMenu) return html``
 
+  const showOutputs = this.showOutputPicker
+  const showVariants = this.showVariantSection
+
   return html`
     <button name=toggle
             @click=${this}
@@ -281,24 +363,42 @@ function template (this: AudioDnSettingsMenu): TemplateResult {
             aria-expanded="${this.isOpen}"
             aria-label=${t(this.locale, 'settings.aria')}
             @keydown=${(e: KeyboardEvent) => this.handleKeydown(e)}>
-      ${iconSetting}
+      ${iconMoreVertical}
     </button>
 
     <ul role="menu" popover="manual" @keydown=${(e: KeyboardEvent) => this.handleKeydown(e)}>
-      ${this.variants.map((v: TrackVariant): TemplateResult => {
-        if (!this.variant) return html``
-        const encoding = `${v.props.codec.toUpperCase()} ${v.props.bitrate}`
-        const sizeStr = v.size != null && v.size > 0 ? ` · ${formatBytes(v.size, 2)}` : ''
-        const name = (v.variant.index || '').toUpperCase()
-        const buttonText = `${name} — ${encoding}${sizeStr}`
+      ${showOutputs
+        ? this.outputs.map((device: AudioDevice, index: number): TemplateResult => {
+            const selected = device.deviceId === this.selectedOutputId ||
+              (!this.selectedOutputId && index === 0)
+            const label = this.outputLabel(device, index)
+            return html`
+              <li role="menuitemradio" aria-checked=${selected ? 'true' : 'false'}>
+                <button @click=${this} name="output" index=${device.deviceId} ?disabled=${selected}>${label}</button>
+                ${selected ? html`<span class="check" aria-hidden="true">${iconCheck}</span>` : ''}
+              </li>
+            `
+          })
+        : ''}
 
-        return html`
-          <li role="menuitem" ?active=${v.id === this.variant.id}>
-            <button @click=${this} name="variant" index=${v.variant.index} ?disabled=${v.id === this.variant.id}>${buttonText}</button>
-            ${this.download ? html`<button type="button" name="download" @click=${() => this.handleDownload(v.variant.index)} aria-label=${t(this.locale, 'settings.download', { label: buttonText })}>${iconDownload}</button>` : ''}
-          </li>
-        `
-      })}
+      ${showOutputs && showVariants ? html`<li role="separator"></li>` : ''}
+
+      ${showVariants
+        ? this.variants.map((v: TrackVariant): TemplateResult => {
+            if (!this.variant) return html``
+            const encoding = `${v.props.codec.toUpperCase()} ${v.props.bitrate}`
+            const sizeStr = v.size != null && v.size > 0 ? ` · ${formatBytes(v.size, 2)}` : ''
+            const name = (v.variant.index || '').toUpperCase()
+            const buttonText = `${name} — ${encoding}${sizeStr}`
+
+            return html`
+              <li role="menuitem" ?active=${v.id === this.variant.id}>
+                <button @click=${this} name="variant" index=${v.variant.index} ?disabled=${v.id === this.variant.id}>${buttonText}</button>
+                ${this.download ? html`<button type="button" name="download" @click=${() => this.handleDownload(v.variant.index)} aria-label=${t(this.locale, 'settings.download', { label: buttonText })}>${iconDownload}</button>` : ''}
+              </li>
+            `
+          })
+        : ''}
     </ul>
   `
 }
@@ -350,20 +450,21 @@ function styles (): CSSResult {
        fixed left/top/max-height inline. */
     ul {
       list-style: none;
-      padding: var(--adn-settingsmenu-padding-popover);
+      padding: var(--adn-settingsmenu-padding-popover, 6px);
       margin: 0;
       display: none;
       overflow-y: auto;
-      min-width: var(--adn-settingsmenu-min-width-popover, 12rem);
-      max-width: calc(100vw - 16px);
-      background: var(--adn-settingsmenu-bg-popover, var(--_bg));
-      border-radius: var(--adn-settingsmenu-radius-popover, var(--adn-radius, 8px));
-      /* Default border + shadow so the popover reads as a distinct floating
-         surface in any theme. The border is derived from the font color, so it
-         stays subtle and visible whether the surface is dark or light (without
-         them, a light-theme popover blends into a light page). */
-      border: var(--adn-settingsmenu-border-popover, 1px solid color-mix(in srgb, var(--_color-font) 20%, transparent));
-      box-shadow: var(--adn-settingsmenu-box-shadow-popover, 0 8px 28px rgba(0, 0, 0, 0.35));
+      max-height: 220px;
+      min-width: var(--adn-settingsmenu-min-width-popover, 200px);
+      max-width: min(280px, calc(100vw - 16px));
+      color: var(--_color-font);
+      background: var(--adn-settingsmenu-bg-popover, var(--_bg-light));
+      border-radius: var(--adn-settingsmenu-radius-popover, 10px);
+      /* Floating surface tuned to match the recorder's device menu: a subtle
+         border derived from the theme border color (with a neutral grey
+         fallback) plus a soft shadow so it reads on any background. */
+      border: var(--adn-settingsmenu-border-popover, 1px solid var(--_border-color, rgba(127, 127, 127, 0.35)));
+      box-shadow: var(--adn-settingsmenu-box-shadow-popover, 0 8px 24px rgba(0, 0, 0, 0.28));
       opacity: 0;
       transform: translateY(-6px);
       transition:
@@ -410,20 +511,46 @@ function styles (): CSSResult {
       align-items: center;
       justify-content: space-between;
       position: relative;
-      border-inline-start: var(--adn-settingsmenu-size-highlight, var(--_width-highlight)) solid transparent;
-      gap: 8px;
+      gap: 10px;
       cursor: pointer;
-      min-height: 44px;
-      padding: var(--adn-settingsmenu-padding-item, 4px 8px);
+      border-radius: var(--adn-settingsmenu-radius-item, 6px);
+      padding: var(--adn-settingsmenu-padding-item, 8px 10px);
     }
 
-    li:hover {
-      background: var(--adn-settingsmenu-color-highlight, rgba(var(--_color-accent-rgb), 0.2));
+    li:hover,
+    li[active],
+    li[aria-checked="true"] {
+      background: var(--adn-settingsmenu-color-highlight, color-mix(in srgb, var(--_color-accent) 16%, transparent));
     }
 
-    li[active] {
-      background: var(--adn-settingsmenu-color-highlight, rgba(var(--_color-accent-rgb), 0.2));
-      border-color: var(--adn-settingsmenu-color-highlight, var(--_color-accent));
+    /* Separates the output-device section from the variant/download section. */
+    li[role="separator"] {
+      min-height: 0;
+      padding: 0;
+      margin: 4px 0;
+      border: none;
+      border-top: 1px solid color-mix(in srgb, var(--_color-font) 15%, transparent);
+      cursor: default;
+    }
+
+    li[role="separator"]:hover {
+      background: none;
+    }
+
+    /* Selected-row marker uses the accent color, matching the recorder menu. */
+    .check {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      color: var(--adn-settingsmenu-color-check, var(--_color-accent));
+    }
+
+    .check svg {
+      width: 100%;
+      height: 100%;
     }
 
     button {
@@ -432,7 +559,9 @@ function styles (): CSSResult {
       border: none;
       background: transparent;
       white-space: nowrap;
-      font-size: var(--_text-regular);
+      text-align: left;
+      font-size: var(--adn-settingsmenu-font-size, 13px);
+      line-height: 1.3;
       /* The label sits on the popover's neutral surface, so it must track the
          theme font color (not --_color-accent-alt, which is the on-accent
          foreground and can resolve to black/white independently of the
@@ -450,19 +579,19 @@ function styles (): CSSResult {
       }
     }
 
+    /* Label buttons fill the row and ellipsize long device / variant names,
+       just like the recorder's option labels. */
+    button[name="output"],
+    button[name="variant"] {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     a:focus-visible {
       outline: 2px solid var(--_color-accent);
       outline-offset: 2px;
-    }
-
-    @keyframes rotate {
-      from {
-        transform: rotate(0deg);
-      }
-
-      to {
-        transform: rotate(360deg);
-      }
     }
 
     svg {
@@ -470,7 +599,6 @@ function styles (): CSSResult {
       height: auto;
 
       [name=toggle] &:hover {
-        animation: rotate 3s linear infinite;
         cursor: pointer;
       }
     }

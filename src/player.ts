@@ -19,6 +19,12 @@ import { getPlaySessionTrack, ApiError } from './lib/api.ts'
 import { createAudioInstance } from './lib/audio.ts'
 import { isDark as isColorDark, parseHex, placeholderAccent } from './lib/color.ts'
 import { t, type Locale } from './lib/i18n.ts'
+import {
+  applySinkId,
+  getPreferredAudioOutputId,
+  setPreferredAudioOutputId,
+  OUTPUT_CHANGE_EVENT,
+} from './lib/media-devices.ts'
 
 import type { CSSResult } from 'lit'
 import type { SessionData, PlaySession, PlaySessionTrack } from './lib/session.ts'
@@ -57,6 +63,16 @@ export class AudioDnPlayer extends LitElement {
 
   @property({ type: String, attribute: 'size', reflect: true })
   size: string = 'large'
+
+  // Layout variant. `default` is the full player; `inline` is a compact
+  // play/pause button (with a progress ring) plus the settings menu, leaving
+  // the host page to present any track information itself.
+  @property({ type: String, attribute: 'variant', reflect: true })
+  variant: 'default' | 'inline' = 'default'
+
+  /** Play-button size (px) for the `inline` variant. Ignored otherwise. */
+  @property({ type: Number, attribute: 'height' })
+  height?: number
 
   @property({ type: String, attribute: 'theme', reflect: true })
   theme: Theme = 'auto'
@@ -186,8 +202,10 @@ export class AudioDnPlayer extends LitElement {
 
     this.volume = this.getVolumeFromStorage()
     this.audio.volume = this.volume
+    applySinkId(this.audio, getPreferredAudioOutputId())
     document.addEventListener('adn-volumechange', this)
     document.addEventListener('adn-playchange', this)
+    document.addEventListener(OUTPUT_CHANGE_EVENT, this)
   }
 
   protected updated (changedProperties: Map<string, unknown>) {
@@ -196,6 +214,28 @@ export class AudioDnPlayer extends LitElement {
     if (changedProperties.has('theme')) {
       this.applyAccent()
     }
+    // Publish the inline play-button size so the button (and its progress ring)
+    // scale with the `height` attribute; clear it when leaving the inline variant.
+    if (changedProperties.has('variant') || changedProperties.has('height')) {
+      if (this.variant === 'inline') {
+        this.style.setProperty('--_playbutton-size', `${this.inlineButtonSize()}px`)
+      } else {
+        this.style.removeProperty('--_playbutton-size')
+      }
+    }
+  }
+
+  /** Square play-button edge (px) for the inline variant, clamped to a sane minimum. */
+  inlineButtonSize (): number {
+    const n = Number(this.height)
+    return Number.isFinite(n) && n > 0 ? Math.max(24, n) : 56
+  }
+
+  /** Absolute playback fraction (0..1) of the active track, for the inline ring. */
+  inlineProgress (): number {
+    const duration = this.activeTrack?.duration
+    if (!duration || duration <= 0) return 0
+    return Math.min(1, Math.max(0, this.currentTime / duration))
   }
 
   private getEffectiveTheme (): 'light' | 'dark' {
@@ -298,6 +338,7 @@ export class AudioDnPlayer extends LitElement {
     }
     document.removeEventListener('adn-volumechange', this)
     document.removeEventListener('adn-playchange', this)
+    document.removeEventListener(OUTPUT_CHANGE_EVENT, this)
     this.audio.pause()
     this.audio.src = ''
   }
@@ -706,6 +747,20 @@ export class AudioDnPlayer extends LitElement {
     )
   }
 
+  // The settings menu picked an output device. Persist it, route this player's
+  // audio there, and broadcast so every other player/recorder follows suit.
+  handleUISelectOutput (event: CustomEvent<string>): void {
+    const deviceId = event.detail || ''
+    setPreferredAudioOutputId(deviceId)
+    applySinkId(this.audio, deviceId)
+
+    document.dispatchEvent(
+      new CustomEvent(OUTPUT_CHANGE_EVENT, {
+        detail: { origin: this, data: deviceId }
+      })
+    )
+  }
+
   protected handleKeydown (e: KeyboardEvent) {
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault()
@@ -830,6 +885,13 @@ export class AudioDnPlayer extends LitElement {
         }
         break
       }
+
+      case OUTPUT_CHANGE_EVENT: {
+        const outEvent = event as CustomEvent
+        if (outEvent.detail.origin === this) return
+        applySinkId(this.audio, getPreferredAudioOutputId())
+        break
+      }
     }
   }
 
@@ -857,10 +919,16 @@ declare global {
 }
 
 function template (this: AudioDnPlayer) {
+  const body = this.showLoader
+    ? loaderTemplate.call(this)
+    : this.variant === 'inline'
+      ? inlineTemplate.call(this)
+      : mainTemplate.call(this)
+
   return html`
     <audiodn-notification .locale=${this.locale}></audiodn-notification>
 
-    ${this.showLoader ? loaderTemplate.call(this) : mainTemplate.call(this)}
+    ${body}
   `
 }
 
@@ -895,7 +963,7 @@ function mainTemplate (this: AudioDnPlayer) {
         <div class="player-row-controls">
           <audiodn-play-time .elapsed=${this.currentTime} .duration=${this.activeTrack?.duration} .locale=${this.locale}></audiodn-play-time>
           <audiodn-volume-control .volume=${this.volume} @adni-volumechange=${this.handleUIChangeVolume} .locale=${this.locale}></audiodn-volume-control>
-          <audiodn-settings-menu .variants=${this.activeTrackVariants} .variant=${this.activeVariant} .trackId=${this.activeTrack?.id} .playSessionId=${this.playSession?.id} .download=${this.downloadable} @adni-selectvariant=${this.handleUISelectVariant} @adni-download-error=${this.handleDownloadError} .locale=${this.locale}></audiodn-settings-menu>
+          <audiodn-settings-menu .variants=${this.activeTrackVariants} .variant=${this.activeVariant} .trackId=${this.activeTrack?.id} .playSessionId=${this.playSession?.id} .download=${this.downloadable} @adni-selectvariant=${this.handleUISelectVariant} @adni-selectoutput=${this.handleUISelectOutput} @adni-download-error=${this.handleDownloadError} .locale=${this.locale}></audiodn-settings-menu>
         </div>
       </div>
     </div>
@@ -907,6 +975,42 @@ function mainTemplate (this: AudioDnPlayer) {
       <audiodn-tracklist @adni-track-selected=${this.handleUISelectTrack} .tracks=${this.tracks} .activeTrackId=${this.activeTrack?.id} .locale=${this.locale}></audiodn-tracklist>
     `
 : nothing}
+  `
+}
+
+// Compact layout: play/pause button (with a circular progress ring) and the
+// settings menu only. No cover art, title, progress bar, play-time, volume, or
+// tracklist — the host page surfaces any track information itself.
+function inlineTemplate (this: AudioDnPlayer) {
+  const buttonState = this.hasError ? 'error' : this.state
+
+  return html`
+    <div class="player-inline"
+         role="region"
+         aria-label=${t(this.locale, 'player.aria.region')}
+         tabindex="0"
+         @keydown=${(e: KeyboardEvent) => this.handleKeydown(e)}>
+      <audiodn-play-button
+        @adni-click=${this.handlePlayButtonClick}
+        .state=${buttonState}
+        .buffering=${this.isBuffering}
+        .progress=${this.inlineProgress()}
+        .showProgress=${true}
+        .isDark=${this.activeColorIsDark}
+        .locale=${this.locale}></audiodn-play-button>
+      <audiodn-settings-menu
+        .variants=${this.activeTrackVariants}
+        .variant=${this.activeVariant}
+        .trackId=${this.activeTrack?.id}
+        .playSessionId=${this.playSession?.id}
+        .download=${this.downloadable}
+        @adni-selectvariant=${this.handleUISelectVariant}
+        @adni-selectoutput=${this.handleUISelectOutput}
+        @adni-download-error=${this.handleDownloadError}
+        .locale=${this.locale}></audiodn-settings-menu>
+    </div>
+
+    <div aria-live="polite" class="sr-only">${statusMessage.call(this)}</div>
   `
 }
 
@@ -1167,6 +1271,47 @@ function styles ({
       .player-row-controls:has(audiodn-settings-menu[hidden]) audiodn-volume-control {
         padding-right: var(--_gap);
       }
+    }
+
+    /* ── Inline: compact play button + settings menu ── */
+
+    :host([variant="inline"]) {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--adn-gap, var(--space-xs));
+      width: max-content;
+      max-width: 100%;
+      /* The progress ring extends slightly past the button, so don't clip it. */
+      overflow: visible;
+      border-radius: var(--adn-radius, 999px);
+      padding: var(--adn-padding, var(--space-2xs));
+      --_playbutton-size: var(--adn-playbutton-size, 56px);
+    }
+
+    .player-inline {
+      display: inline-flex;
+      align-items: center;
+      /* The play button's circle (+ progress ring) overflows its ~44px tap-target
+         box into the gap, so a fixed gap looks tight as the button grows. Add half
+         of that overflow back so the menu button keeps its breathing room at any
+         size. */
+      gap: var(--adn-gap, calc(var(--space-xs) + max(0px, (var(--_playbutton-size) - 36px) / 2)));
+    }
+
+    .player-inline:focus-visible {
+      outline: 2px solid var(--_color-accent);
+      outline-offset: 2px;
+      border-radius: var(--adn-radius, 999px);
+    }
+
+    :host([variant="inline"]) .player-loading {
+      min-height: var(--_playbutton-size);
+      padding: var(--adn-padding, var(--space-2xs));
+    }
+
+    :host([variant="inline"]) .player-loader {
+      width: calc(var(--_playbutton-size) * 0.7);
+      height: calc(var(--_playbutton-size) * 0.7);
     }
 
     /* ── Utilities ── */

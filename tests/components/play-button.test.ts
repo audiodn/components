@@ -116,6 +116,52 @@ describe('AudioDnPlayButton', () => {
     })
   })
 
+  describe('Progress ring', () => {
+    it('is hidden by default', () => {
+      expect(element.showProgress).toBe(false)
+      expect(element.shadowRoot?.querySelector('.progress-ring')).to.not.exist
+    })
+
+    it('renders the ring and reflects the show-progress attribute', async () => {
+      element = await fixture(html`<audiodn-play-button show-progress></audiodn-play-button>`)
+      expect(element.showProgress).toBe(true)
+      expect(element.hasAttribute('show-progress')).toBe(true)
+      expect(element.shadowRoot?.querySelector('.progress-ring')).to.exist
+    })
+
+    it('sets the --_pb-progress CSS var from progress (0..1 -> 0..100)', async () => {
+      element = await fixture(html`<audiodn-play-button show-progress></audiodn-play-button>`)
+      element.progress = 0.5
+      await element.updateComplete
+      const ring = element.shadowRoot?.querySelector<HTMLElement>('.progress-ring')
+      expect(ring).to.exist
+      expect(ring?.style.getPropertyValue('--_pb-progress')).toBe('50')
+    })
+
+    it('clamps progress to the 0..100 range', async () => {
+      element = await fixture(html`<audiodn-play-button show-progress></audiodn-play-button>`)
+      element.progress = 1.8
+      await element.updateComplete
+      let ring = element.shadowRoot?.querySelector<HTMLElement>('.progress-ring')
+      expect(ring?.style.getPropertyValue('--_pb-progress')).toBe('100')
+      element.progress = -0.4
+      await element.updateComplete
+      ring = element.shadowRoot?.querySelector<HTMLElement>('.progress-ring')
+      expect(ring?.style.getPropertyValue('--_pb-progress')).toBe('0')
+    })
+
+    it('is not shown in the error state', async () => {
+      element = await fixture(html`<audiodn-play-button show-progress state="error"></audiodn-play-button>`)
+      expect(element.shadowRoot?.querySelector('.progress-ring')).to.not.exist
+    })
+
+    it('yields to the buffering spinner', async () => {
+      element = await fixture(html`<audiodn-play-button show-progress buffering></audiodn-play-button>`)
+      expect(element.shadowRoot?.querySelector('.spinner')).to.exist
+      expect(element.shadowRoot?.querySelector('.progress-ring')).to.not.exist
+    })
+  })
+
   describe('State Transitions', () => {
     it('should update icon when state changes', async () => {
       // Start with paused state

@@ -64,7 +64,7 @@ describe('t', () => {
 
   it('resolves region subtags before lookup', () => {
     expect(t('fr-CA', 'volume.aria')).toBe('Volume')
-    expect(t('de-CH', 'settings.aria')).toBe('Einstellungen')
+    expect(t('de-CH', 'settings.aria')).toBe('Weitere Optionen')
   })
 
   it('has complete catalogs for every locale (no missing/empty keys)', () => {

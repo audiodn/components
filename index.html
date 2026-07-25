@@ -31,6 +31,7 @@
       <v-list nav density="compact" class="text-caption">
         <v-list-subheader>On this page</v-list-subheader>
         <v-list-item title="Sizes" href="#player-sizes" :active="activeSection === 'player-sizes'"></v-list-item>
+        <v-list-item title="Inline" href="#player-inline" :active="activeSection === 'player-inline'"></v-list-item>
         <v-list-item title="Playlist" href="#player-playlist" :active="activeSection === 'player-playlist'"></v-list-item>
         <v-list-item title="Themes" href="#player-themes" :active="activeSection === 'player-themes'"></v-list-item>
       </v-list>
@@ -93,6 +94,47 @@
   id="TRACK_ID"
   variants="hq,lq"
   size="large"
+&gt;&lt;/audiodn-player&gt;</code></pre></div>
+        </section>
+
+        <section id="player-inline">
+          <h2>Inline</h2>
+          <p class="desc">The <code>variant="inline"</code> layout is a compact play/pause button — with a circular progress ring that fills clockwise from the top — plus the settings menu. It shows no track information, so surface the title, artwork, etc. yourself. Use <code>height</code> to size the button (defaults to 56px).</p>
+
+          <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+            <audiodn-player
+              variant="inline"
+              theme="light"
+              api-key="%VITE_DEMO_PLAYER_API_KEY%"
+              scope="track"
+              id="aa83275b-3d19-4cf4-99df-92de7530b72c"
+              variants="hq,lq"
+            ></audiodn-player>
+            <audiodn-player
+              variant="inline"
+              height="28"
+              style="--adn-color-accent: #7c3aed; --adn-color-accent-rgb: 124, 58, 237;"
+              api-key="%VITE_DEMO_PLAYER_API_KEY%"
+              scope="track"
+              id="e6e0f0ba-cf64-4de3-9596-5687440c3185"
+              variants="hq,lq"
+            ></audiodn-player>
+            <audiodn-player
+              variant="inline"
+              height="72"
+              api-key="%VITE_DEMO_PLAYER_API_KEY%"
+              scope="track"
+              id="8096a1e7-87da-4d17-b37f-21e04325b90d"
+              variants="hq,lq"
+            ></audiodn-player>
+          </div>
+          <div class="code-block"><pre><code class="language-html">&lt;audiodn-player
+  variant="inline"
+  height="56"
+  api-key="YOUR_API_KEY"
+  scope="track"
+  id="TRACK_ID"
+  variants="hq,lq"
 &gt;&lt;/audiodn-player&gt;</code></pre></div>
         </section>
 

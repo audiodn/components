@@ -174,4 +174,90 @@ describe('AudioDnSettingsMenu', () => {
       expect(el.hasAttribute('hidden')).toBe(true)
     })
   })
+
+  describe('Output device selection', () => {
+    type SinkProto = { setSinkId?: (id: string) => Promise<void> }
+
+    const outputs = [
+      { deviceId: 'spk-1', kind: 'audiooutput', label: 'Speakers', groupId: 'g1' },
+      { deviceId: 'spk-2', kind: 'audiooutput', label: 'Headphones', groupId: 'g2' },
+    ] as MediaDeviceInfo[]
+
+    beforeEach(() => {
+      ;(HTMLMediaElement.prototype as SinkProto).setSinkId = vi.fn().mockResolvedValue(undefined)
+      vi.mocked(navigator.mediaDevices.enumerateDevices).mockResolvedValue(outputs)
+    })
+
+    afterEach(() => {
+      delete (HTMLMediaElement.prototype as SinkProto).setSinkId
+    })
+
+    async function mountOutputs (props: { variants?: any[], download?: boolean, playSessionId?: string } = {}) {
+      const el = await fixture(html`
+        <audiodn-settings-menu
+          play-session-id=${props.playSessionId ?? ''}
+          .variants=${props.variants ?? []}
+          .variant=${(props.variants ?? [])[0]}
+          ?download=${props.download ?? false}
+        ></audiodn-settings-menu>
+      `) as AudioDnSettingsMenu
+      await el.refreshOutputs()
+      await el.updateComplete
+      return el
+    }
+
+    it('shows the menu for multiple outputs even without a session', async () => {
+      const el = await mountOutputs()
+      expect(el.showOutputPicker).toBe(true)
+      expect(el.hasMenu).toBe(true)
+      expect(el.hasAttribute('hidden')).toBe(false)
+    })
+
+    it('uses the three-dots trigger icon', async () => {
+      const el = await mountOutputs()
+      const svg = el.shadowRoot?.querySelector('[name=toggle] svg')
+      expect(svg?.querySelectorAll('circle').length).toBe(3)
+    })
+
+    it('renders one radio item per output device', async () => {
+      const el = await mountOutputs()
+      const items = el.shadowRoot?.querySelectorAll('li[role=menuitemradio] button[name=output]') ?? []
+      expect(items.length).toBe(2)
+    })
+
+    it('renders a divider between outputs and variants', async () => {
+      const el = await mountOutputs({
+        playSessionId: 'sess-123',
+        variants: [
+          { id: 'a', props: { codec: 'mp3', bitrate: 320 }, size: 1, variant: { index: 'hq' } },
+          { id: 'b', props: { codec: 'mp3', bitrate: 128 }, size: 1, variant: { index: 'lq' } },
+        ],
+      })
+      expect(el.shadowRoot?.querySelector('li[role=separator]')).not.toBeNull()
+    })
+
+    it('omits the divider when there is no variant section', async () => {
+      const el = await mountOutputs()
+      expect(el.shadowRoot?.querySelector('li[role=separator]')).toBeNull()
+    })
+
+    it('dispatches adni-selectoutput with the device id on selection', async () => {
+      const el = await mountOutputs()
+      const spy = vi.fn()
+      el.addEventListener('adni-selectoutput', spy)
+
+      const btn = el.shadowRoot?.querySelector<HTMLButtonElement>('button[name=output][index="spk-2"]')
+      btn?.click()
+
+      expect(spy).toHaveBeenCalledTimes(1)
+      expect((spy.mock.calls[0][0] as CustomEvent).detail).toBe('spk-2')
+    })
+
+    it('hides the output section when setSinkId is unsupported', async () => {
+      delete (HTMLMediaElement.prototype as SinkProto).setSinkId
+      const el = await mountOutputs()
+      expect(el.showOutputPicker).toBe(false)
+      expect(el.hasMenu).toBe(false)
+    })
+  })
 })

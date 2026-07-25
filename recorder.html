@@ -37,7 +37,7 @@
       <v-list nav density="compact" class="text-caption">
         <v-list-subheader>On this page</v-list-subheader>
         <v-list-item title="Default" href="#recorder-default" :active="activeSection === 'recorder-default'"></v-list-item>
-        <v-list-item title="Tiny" href="#recorder-tiny" :active="activeSection === 'recorder-tiny'"></v-list-item>
+        <v-list-item title="Inline" href="#recorder-inline" :active="activeSection === 'recorder-inline'"></v-list-item>
         <v-list-item title="Locale" href="#recorder-locale" :active="activeSection === 'recorder-locale'"></v-list-item>
         <v-list-item title="Themes" href="#recorder-themes" :active="activeSection === 'recorder-themes'"></v-list-item>
       </v-list>
@@ -71,13 +71,13 @@
 &gt;&lt;/audiodn-recorder&gt;</code></pre></div>
         </section>
 
-        <section id="recorder-tiny">
-          <h2>Tiny</h2>
+        <section id="recorder-inline">
+          <h2>Inline</h2>
           <p class="desc">A compact, two-button layout for tight spaces (inline in a comment box, chat, etc.). Idle shows just a record button (plus a source menu when more than one mic is present). Recording animates a ring around the button. Preview collapses to a confirm button and a contextual menu (preview / delete).</p>
 
           <div class="recorder-wrap" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;justify-content:center;">
             <audiodn-recorder
-              variant="tiny"
+              variant="inline"
               height="28"
               api-key="%VITE_DEMO_UPLOADER_API_KEY%"
               collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
@@ -85,14 +85,14 @@
             ></audiodn-recorder>
             <audiodn-recorder
               class="theme-recorder-mint"
-              variant="tiny"
+              variant="inline"
               height="56"
               accent-color="#2dd4bf"
               api-key="%VITE_DEMO_UPLOADER_API_KEY%"
               collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
             ></audiodn-recorder>
             <audiodn-recorder
-              variant="tiny"
+              variant="inline"
               height="72"
               api-key="%VITE_DEMO_UPLOADER_API_KEY%"
               collection-id="%VITE_DEMO_UPLOADER_COLLECTION_ID%"
@@ -111,7 +111,7 @@
   --adn-main-border: 1px solid #0f766e;
 }</code></pre><pre><code class="language-html">&lt;audiodn-recorder
   class="theme-recorder-mint"
-  variant="tiny"
+  variant="inline"
   height="56"
   accent-color="#2dd4bf"
   api-key="YOUR_API_KEY"

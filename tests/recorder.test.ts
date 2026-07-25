@@ -633,13 +633,54 @@ describe('AudiodnRecorder', () => {
         audio: { deviceId: { exact: 'mic-2' } },
       })
     })
+
+    it('persists and broadcasts the selected mic', async () => {
+      await createRecorder({ 'api-key': 'key-1' })
+      const spy = vi.fn()
+      document.addEventListener('adn-inputchange', spy)
+
+      element.selectAudioInput('mic-2')
+
+      expect(sessionStorage.setItem).toHaveBeenCalledWith(
+        'audioInputDeviceId',
+        expect.stringContaining('mic-2')
+      )
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({
+        detail: { origin: element, data: 'mic-2' },
+      }))
+
+      document.removeEventListener('adn-inputchange', spy)
+    })
+
+    it('adopts a mic change broadcast by another recorder', async () => {
+      await createRecorder({ 'api-key': 'key-1' })
+      vi.mocked(sessionStorage.getItem).mockReturnValue(JSON.stringify({ data: 'mic-2' }))
+
+      document.dispatchEvent(new CustomEvent('adn-inputchange', {
+        detail: { origin: {}, data: 'mic-2' },
+      }))
+
+      expect(element._selectedDeviceId).toBe('mic-2')
+    })
+
+    it('ignores its own mic change broadcast', async () => {
+      await createRecorder({ 'api-key': 'key-1' })
+      element._selectedDeviceId = 'mic-1'
+      vi.mocked(sessionStorage.getItem).mockReturnValue(JSON.stringify({ data: 'mic-2' }))
+
+      document.dispatchEvent(new CustomEvent('adn-inputchange', {
+        detail: { origin: element, data: 'mic-2' },
+      }))
+
+      expect(element._selectedDeviceId).toBe('mic-1')
+    })
   })
 
-  describe('Tiny variant', () => {
+  describe('Inline variant', () => {
     it('always shows two buttons; source button is disabled with one input', async () => {
-      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
-      expect(element.isTiny()).toBe(true)
-      expect(element.shadowRoot?.querySelector('.recorder-tiny-record')).to.exist
+      await createRecorder({ 'api-key': 'key-1', variant: 'inline' })
+      expect(element.isInline()).toBe(true)
+      expect(element.shadowRoot?.querySelector('.recorder-inline-record')).to.exist
       // Regular panel layout should not be used.
       expect(element.shadowRoot?.querySelector('.recorder-mic-button')).to.not.exist
       // The source button is present (never hidden) but disabled with one input.
@@ -653,7 +694,7 @@ describe('AudiodnRecorder', () => {
         { deviceId: 'mic-1', kind: 'audioinput', label: 'Built-in Mic', groupId: 'g1' } as MediaDeviceInfo,
         { deviceId: 'mic-2', kind: 'audioinput', label: 'USB Mic', groupId: 'g2' } as MediaDeviceInfo,
       ])
-      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+      await createRecorder({ 'api-key': 'key-1', variant: 'inline' })
       await element.refreshAudioInputs()
       await element.updateComplete
       const source = element.shadowRoot?.querySelector('.recorder-device-button') as HTMLButtonElement
@@ -662,27 +703,27 @@ describe('AudiodnRecorder', () => {
     })
 
     it('applies the height parameter as the square button size', async () => {
-      await createRecorder({ 'api-key': 'key-1', variant: 'tiny', height: '72' })
-      expect(element.tinyButtonSize()).toBe(72)
+      await createRecorder({ 'api-key': 'key-1', variant: 'inline', height: '72' })
+      expect(element.inlineButtonSize()).toBe(72)
       // Published on the host so padding, gap, and buttons all scale together.
-      expect(element.style.getPropertyValue('--_tiny-size')).toBe('72px')
+      expect(element.style.getPropertyValue('--_inline-size')).toBe('72px')
     })
 
     it('clamps a too-small height to a usable minimum', async () => {
-      await createRecorder({ 'api-key': 'key-1', variant: 'tiny', height: '4' })
-      expect(element.tinyButtonSize()).toBe(24)
+      await createRecorder({ 'api-key': 'key-1', variant: 'inline', height: '4' })
+      expect(element.inlineButtonSize()).toBe(24)
     })
 
     it('marks the record button as recording (border animation hook)', async () => {
-      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+      await createRecorder({ 'api-key': 'key-1', variant: 'inline' })
       await element.startRecording()
       await element.updateComplete
       expect(element.mode).toBe('recording')
-      expect(element.shadowRoot?.querySelector('.recorder-tiny-record.is-recording')).to.exist
+      expect(element.shadowRoot?.querySelector('.recorder-inline-record.is-recording')).to.exist
     })
 
     it('shows a confirm button and contextual menu in preview', async () => {
-      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+      await createRecorder({ 'api-key': 'key-1', variant: 'inline' })
       await element.startRecording()
       element.stopRecording()
       await element.updateComplete
@@ -690,7 +731,7 @@ describe('AudiodnRecorder', () => {
       await element.updateComplete
 
       expect(element.mode).toBe('preview')
-      expect(element.shadowRoot?.querySelector('.recorder-tiny-confirm')).to.exist
+      expect(element.shadowRoot?.querySelector('.recorder-inline-confirm')).to.exist
       const trigger = element.shadowRoot?.querySelector('.recorder-menu-trigger')
       expect(trigger).to.exist
 
@@ -703,14 +744,14 @@ describe('AudiodnRecorder', () => {
       expect(items?.[1].textContent).to.include('Delete')
     })
 
-    it('does not render the notification banner (too small in tiny)', async () => {
-      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+    it('does not render the notification banner (too small in inline)', async () => {
+      await createRecorder({ 'api-key': 'key-1', variant: 'inline' })
       expect(element.shadowRoot?.querySelector('audiodn-notification')).to.not.exist
     })
 
     it('shows a red warning glyph when an upload fails', async () => {
       mockCreateUploadSessionWithTrack.mockRejectedValue(new Error('boom'))
-      await createRecorder({ 'api-key': 'key-1', 'collection-id': 'col-1', variant: 'tiny' })
+      await createRecorder({ 'api-key': 'key-1', 'collection-id': 'col-1', variant: 'inline' })
       await element.startRecording()
       element.stopRecording()
       await element.updateComplete
@@ -720,12 +761,12 @@ describe('AudiodnRecorder', () => {
       await element.sendRecording()
       await element.updateComplete
 
-      expect(element._tinyError).toBe(true)
-      expect(element.shadowRoot?.querySelector('.recorder-tiny-warn')).to.exist
+      expect(element._inlineError).toBe(true)
+      expect(element.shadowRoot?.querySelector('.recorder-inline-warn')).to.exist
     })
 
     it('discards from the contextual menu', async () => {
-      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+      await createRecorder({ 'api-key': 'key-1', variant: 'inline' })
       await element.startRecording()
       element.stopRecording()
       await element.updateComplete
@@ -738,20 +779,20 @@ describe('AudiodnRecorder', () => {
       expect(element._deviceMenuOpen).toBe(false)
     })
 
-    it('confirms (uploads) from the tiny confirm button', async () => {
+    it('confirms (uploads) from the inline confirm button', async () => {
       mockCreateUploadSessionWithTrack.mockResolvedValue({
         ...mockSessionData,
         track_id: 'track-1',
         track_upload: { upload_url: 'https://cdn.test/put' },
       })
-      await createRecorder({ 'api-key': 'key-1', 'collection-id': 'col-1', variant: 'tiny' })
+      await createRecorder({ 'api-key': 'key-1', 'collection-id': 'col-1', variant: 'inline' })
       await element.startRecording()
       element.stopRecording()
       await element.updateComplete
       await Promise.resolve()
       await element.updateComplete
 
-      const confirm = element.shadowRoot?.querySelector('.recorder-tiny-confirm') as HTMLButtonElement
+      const confirm = element.shadowRoot?.querySelector('.recorder-inline-confirm') as HTMLButtonElement
       expect(confirm).to.exist
       confirm.click()
       await Promise.resolve()
@@ -759,9 +800,9 @@ describe('AudiodnRecorder', () => {
       expect(element.mode).toBe('uploading')
 
       // Two-button silhouette: circular progress + an enabled contextual menu.
-      expect(element.shadowRoot?.querySelector('.recorder-tiny-progress')).to.exist
-      expect(element.shadowRoot?.querySelector('.recorder-tiny-cancel')).to.not.exist
-      const uploadingButtons = element.shadowRoot?.querySelectorAll('.recorder-tiny-buttons > *')
+      expect(element.shadowRoot?.querySelector('.recorder-inline-progress')).to.exist
+      expect(element.shadowRoot?.querySelector('.recorder-inline-cancel')).to.not.exist
+      const uploadingButtons = element.shadowRoot?.querySelectorAll('.recorder-inline-buttons > *')
       expect(uploadingButtons?.length).toBe(2)
       const menu = element.shadowRoot?.querySelector('.recorder-menu-trigger') as HTMLButtonElement
       expect(menu?.disabled).toBe(false)
@@ -775,12 +816,12 @@ describe('AudiodnRecorder', () => {
     })
 
     it('keeps two buttons in the done state (disabled menu placeholder)', async () => {
-      await createRecorder({ 'api-key': 'key-1', variant: 'tiny' })
+      await createRecorder({ 'api-key': 'key-1', variant: 'inline' })
       // Drive straight into the done state.
       ;(element as unknown as { mode: string }).mode = 'done'
       await element.updateComplete
 
-      expect(element.shadowRoot?.querySelector('.recorder-tiny-check')).to.exist
+      expect(element.shadowRoot?.querySelector('.recorder-inline-check')).to.exist
       const menu = element.shadowRoot?.querySelector('.recorder-device-button') as HTMLButtonElement
       expect(menu).to.exist
       expect(menu.disabled).toBe(true)

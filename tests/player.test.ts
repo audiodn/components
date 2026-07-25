@@ -183,6 +183,17 @@ vi.mock('../src/lib/audio', () => ({
   }),
 }))
 
+const mediaDevicesMock = vi.hoisted(() => ({
+  applySinkId: vi.fn(),
+  getPreferredAudioOutputId: vi.fn(() => ''),
+  setPreferredAudioOutputId: vi.fn(),
+  supportsSinkId: vi.fn(() => true),
+  enumerateAudioOutputs: vi.fn(async () => []),
+  OUTPUT_CHANGE_EVENT: 'adn-outputchange',
+}))
+
+vi.mock('../src/lib/media-devices', () => mediaDevicesMock)
+
 describe('AudioDnPlayer', () => {
   let element: AudioDnPlayer
 
@@ -251,6 +262,60 @@ describe('AudioDnPlayer', () => {
       await element.updateComplete
       expect(element.getAttribute('api-key')).toBeNull()
       expect(element.apiKey).toBe('secret-key-should-not-reflect')
+    })
+  })
+
+  describe('Inline variant', () => {
+    it('renders only the play button and settings menu', async () => {
+      await createPlayer({ variant: 'inline' })
+      expect(element.variant).toBe('inline')
+      expect(element.getAttribute('variant')).toBe('inline')
+
+      const root = element.shadowRoot!
+      expect(root.querySelector('.player-inline')).to.exist
+      expect(root.querySelector('audiodn-play-button')).to.exist
+      expect(root.querySelector('audiodn-settings-menu')).to.exist
+
+      // None of the full-player chrome is present in the inline layout.
+      expect(root.querySelector('.player-main')).to.not.exist
+      expect(root.querySelector('audiodn-cover-art')).to.not.exist
+      expect(root.querySelector('audiodn-track-title')).to.not.exist
+      expect(root.querySelector('audiodn-progress')).to.not.exist
+      expect(root.querySelector('audiodn-play-time')).to.not.exist
+      expect(root.querySelector('audiodn-volume-control')).to.not.exist
+      expect(root.querySelector('audiodn-tracklist')).to.not.exist
+    })
+
+    it('enables the play-button progress ring', async () => {
+      await createPlayer({ variant: 'inline' })
+      const btn = element.shadowRoot?.querySelector('audiodn-play-button') as any
+      expect(btn?.showProgress).toBe(true)
+    })
+
+    it('sizes the play button from the height attribute', async () => {
+      await createPlayer({ variant: 'inline', height: '72' })
+      expect(element.inlineButtonSize()).toBe(72)
+      expect(element.style.getPropertyValue('--_playbutton-size')).toBe('72px')
+    })
+
+    it('defaults the play-button size when height is absent', async () => {
+      await createPlayer({ variant: 'inline' })
+      expect(element.inlineButtonSize()).toBe(56)
+      expect(element.style.getPropertyValue('--_playbutton-size')).toBe('56px')
+    })
+
+    it('forwards playback progress to the play button as currentTime advances', async () => {
+      await createPlayer({ variant: 'inline' })
+      expect(element.activeTrack?.duration).toBe(180)
+
+      let btn = element.shadowRoot?.querySelector('audiodn-play-button') as any
+      expect(btn?.progress).toBe(0)
+
+      element.currentTime = 90
+      await element.updateComplete
+      btn = element.shadowRoot?.querySelector('audiodn-play-button') as any
+      expect(element.inlineProgress()).toBeCloseTo(0.5)
+      expect(btn?.progress).toBeCloseTo(0.5)
     })
   })
 
@@ -586,6 +651,54 @@ describe('AudioDnPlayer', () => {
       }))
 
       document.removeEventListener('adn-volumechange', spy)
+    })
+  })
+
+  describe('Output device', () => {
+    beforeEach(() => {
+      mediaDevicesMock.applySinkId.mockClear()
+      mediaDevicesMock.setPreferredAudioOutputId.mockClear()
+      mediaDevicesMock.getPreferredAudioOutputId.mockReturnValue('')
+    })
+
+    it('persists, applies, and broadcasts on UI output select', async () => {
+      await createPlayer()
+      mediaDevicesMock.applySinkId.mockClear()
+      const spy = vi.fn()
+      document.addEventListener('adn-outputchange', spy)
+
+      element.handleUISelectOutput(new CustomEvent('adni-selectoutput', { detail: 'spk-2' }))
+
+      expect(mediaDevicesMock.setPreferredAudioOutputId).toHaveBeenCalledWith('spk-2')
+      expect(mediaDevicesMock.applySinkId).toHaveBeenCalledWith(element.audio, 'spk-2')
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({
+        detail: { origin: element, data: 'spk-2' },
+      }))
+
+      document.removeEventListener('adn-outputchange', spy)
+    })
+
+    it('applies the shared output on an external change', async () => {
+      await createPlayer()
+      mediaDevicesMock.applySinkId.mockClear()
+      mediaDevicesMock.getPreferredAudioOutputId.mockReturnValue('spk-3')
+
+      element.handleEvent(new CustomEvent('adn-outputchange', {
+        detail: { origin: 'other-player', data: 'spk-3' },
+      }))
+
+      expect(mediaDevicesMock.applySinkId).toHaveBeenCalledWith(element.audio, 'spk-3')
+    })
+
+    it('ignores its own output change events', async () => {
+      await createPlayer()
+      mediaDevicesMock.applySinkId.mockClear()
+
+      element.handleEvent(new CustomEvent('adn-outputchange', {
+        detail: { origin: element, data: 'spk-3' },
+      }))
+
+      expect(mediaDevicesMock.applySinkId).not.toHaveBeenCalled()
     })
   })
 

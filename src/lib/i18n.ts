@@ -32,6 +32,8 @@ export type MessageKey =
   | 'settings.aria'
   | 'settings.download'
   | 'settings.notDownloadable'
+  | 'settings.output.menuLabel'
+  | 'settings.output.unnamed'
   | 'trackTitle.none'
   | 'coverArt.none'
   | 'coverArt.alt'
@@ -120,9 +122,11 @@ const en: Messages = {
   'progress.aria.valueText': '{current} of {total}',
   'playTime.aria': 'Playback time: {elapsed} of {total}',
   'volume.aria': 'Volume',
-  'settings.aria': 'Settings',
+  'settings.aria': 'More options',
   'settings.download': 'Download {label}',
   'settings.notDownloadable': 'This track isn’t downloadable.',
+  'settings.output.menuLabel': 'Output device',
+  'settings.output.unnamed': 'Speaker {n}',
   'trackTitle.none': 'No track selected',
   'coverArt.none': 'No cover art',
   'coverArt.alt': 'Cover art',
@@ -210,9 +214,11 @@ const fr: Messages = {
   'progress.aria.valueText': '{current} sur {total}',
   'playTime.aria': 'Temps de lecture : {elapsed} sur {total}',
   'volume.aria': 'Volume',
-  'settings.aria': 'Paramètres',
+  'settings.aria': 'Plus d’options',
   'settings.download': 'Télécharger {label}',
   'settings.notDownloadable': 'Cette piste n’est pas téléchargeable.',
+  'settings.output.menuLabel': 'Périphérique de sortie',
+  'settings.output.unnamed': 'Haut-parleur {n}',
   'trackTitle.none': 'Aucune piste sélectionnée',
   'coverArt.none': 'Pas de pochette',
   'coverArt.alt': 'Pochette',
@@ -300,9 +306,11 @@ const es: Messages = {
   'progress.aria.valueText': '{current} de {total}',
   'playTime.aria': 'Tiempo de reproducción: {elapsed} de {total}',
   'volume.aria': 'Volumen',
-  'settings.aria': 'Ajustes',
+  'settings.aria': 'Más opciones',
   'settings.download': 'Descargar {label}',
   'settings.notDownloadable': 'Esta pista no se puede descargar.',
+  'settings.output.menuLabel': 'Dispositivo de salida',
+  'settings.output.unnamed': 'Altavoz {n}',
   'trackTitle.none': 'Ninguna pista seleccionada',
   'coverArt.none': 'Sin carátula',
   'coverArt.alt': 'Carátula',
@@ -390,9 +398,11 @@ const de: Messages = {
   'progress.aria.valueText': '{current} von {total}',
   'playTime.aria': 'Wiedergabezeit: {elapsed} von {total}',
   'volume.aria': 'Lautstärke',
-  'settings.aria': 'Einstellungen',
+  'settings.aria': 'Weitere Optionen',
   'settings.download': '{label} herunterladen',
   'settings.notDownloadable': 'Dieser Titel kann nicht heruntergeladen werden.',
+  'settings.output.menuLabel': 'Ausgabegerät',
+  'settings.output.unnamed': 'Lautsprecher {n}',
   'trackTitle.none': 'Kein Titel ausgewählt',
   'coverArt.none': 'Kein Cover',
   'coverArt.alt': 'Cover',
